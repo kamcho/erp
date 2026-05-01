@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+
+{% block title %}Auxiliary Charges | Excel SMS{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div>
+        <h1 class="text-2xl font-black text-slate-900 tracking-tight">Auxiliary Charges & Payments</h1>
+        <p class="text-sm text-slate-500 font-medium">Manage remedial, trips, and other auxiliary invoices.</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <!-- Filter Bar -->
+    <div class="p-6 border-b border-slate-100 bg-slate-50/50">
+        <form method="get" class="flex flex-col md:flex-row gap-4 items-end">
+            <div class="w-full md:w-64 space-y-1.5">
+                <label class="text-xs font-bold tracking-widest text-slate-400 uppercase">Search Student</label>
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Name or Adm No..." class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none">
+                </div>
+            </div>
+            
+            <div class="w-full md:w-56 space-y-1.5">
+                <label class="text-xs font-bold tracking-widest text-slate-400 uppercase">Service Type</label>
+                <select name="service" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none cursor-pointer">
+                    <option value="">All Services</option>
+                    {% for service in services %}
+                        <option value="{{ service.id }}" {% if selected_service == service.id|stringformat:"s" %}selected{% endif %}>{{ service.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="w-full md:w-48 space-y-1.5">
+                <label class="text-xs font-bold tracking-widest text-slate-400 uppercase">Payment Status</label>
+                <select name="status" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none cursor-pointer">
+                    <option value="">All Statuses</option>
+                    <option value="unpaid" {% if selected_status == 'unpaid' %}selected{% endif %}>Unpaid / Partial</option>
+                    <option value="paid" {% if selected_status == 'paid' %}selected{% endif %}>Fully Paid</option>
+                </select>
+            </div>
+
+            <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm tracking-wide rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">
+                Filter
+            </button>
+            <a href="{% url 'accounts:auxiliary-charges-list' %}" class="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 font-bold text-sm rounded-xl transition-all flex items-center justify-center">Clear</a>
+        </form>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-white border-b border-slate-200">
+                    <th class="py-4 px-6 text-xs font-black text-slate-400 uppercase tracking-widest">Student</th>
+                    <th class="py-4 px-6 text-xs font-black text-slate-400 uppercase tracking-widest">Service</th>
+                    <th class="py-4 px-6 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Charged</th>
+                    <th class="py-4 px-6 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Date</th>
+                    <th class="py-4 px-6 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for charge in charges %}
+                <tr class="hover:bg-slate-50 transition-colors group">
+                    <td class="py-4 px-6">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm border-2 border-indigo-100">
+                                {{ charge.student.first_name|first }}{{ charge.student.last_name|first }}
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-slate-800">{{ charge.student.first_name }} {{ charge.student.last_name }}</p>
+                                <p class="text-[11px] font-semibold text-slate-400">Adm: {{ charge.student.adm_no }}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-4 px-6">
+                        <p class="text-sm font-bold text-slate-700">{{ charge.service_type.name }}</p>
+                        <p class="text-[11px] font-medium text-slate-400">{{ charge.term.name|default:"-" }} / {{ charge.academic_year.name|default:"-" }}</p>
+                    </td>
+                    <td class="py-4 px-6 text-right">
+                        <p class="text-sm font-bold text-slate-700">{{ charge.amount|floatformat:2 }}</p>
+                    </td>
+                    <td class="py-4 px-6 text-center">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ charge.created_at|date:"d M, Y" }}</p>
+                    </td>
+                    <td class="py-4 px-6 text-center">
+                        <button onclick="openPaymentModal('{{ charge.student.id }}', '{{ charge.student.get_full_name|escapejs }}', '{{ charge.student.studentprofile.auxiliary_balance }}')" class="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white font-bold text-xs rounded-xl transition-all shadow-sm">
+                            Record Payment
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="py-12 text-center">
+                        <div class="w-16 h-16 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-3">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <p class="text-slate-500 font-medium">No auxiliary charges found.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Payment Modal -->
+<div id="paymentModal" class="fixed inset-0 z-[100] hidden">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closePaymentModal()"></div>
+    
+    <!-- Modal Dialog -->
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-3xl shadow-2xl scale-95 opacity-0 transition-all duration-200" id="paymentModalContent">
+        <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="text-lg font-black text-slate-800">Record Payment</h3>
+            <button onclick="closePaymentModal()" type="button" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-600 transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <form method="post" action="{% url 'accounts:record-auxiliary-payment' %}" class="p-6 space-y-5">
+            {% csrf_token %}
+            <input type="hidden" name="student_id" id="modal_student_id">
+            
+            <div class="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                <p class="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-1">Student</p>
+                <p class="text-indigo-900 font-black" id="modal_student_name"></p>
+                <p class="text-xs font-medium text-indigo-600 mt-1">Record payment against pooled auxiliary balance</p>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold tracking-widest text-slate-500 uppercase mb-2">Amount to Pay (KES)</label>
+                <input type="number" step="0.01" name="amount" id="modal_amount" required class="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl text-lg font-black text-slate-800 outline-none focus:border-indigo-500 transition-colors">
+                <p class="text-[11px] font-medium text-slate-400 mt-1.5">Total Auxiliary Balance: KES <span id="modal_max_balance"></span></p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold tracking-widest text-slate-500 uppercase mb-2">Method</label>
+                    <select name="method" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 transition-colors cursor-pointer">
+                        <option value="Cash">Cash</option>
+                        <option value="Mpesa">M-Pesa</option>
+                        <option value="Bank">Bank Transfer</option>
+                        <option value="Cheque">Cheque</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold tracking-widest text-slate-500 uppercase mb-2">Reference ID</label>
+                    <input type="text" name="reference" placeholder="Optional" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:border-indigo-500 transition-colors outline-none">
+                </div>
+            </div>
+
+            <button type="submit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl font-black tracking-wide shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 mt-4">
+                <i class="fas fa-check-circle"></i> Confirm Payment
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openPaymentModal(studentId, studentName, balance) {
+        document.getElementById('modal_student_id').value = studentId;
+        document.getElementById('modal_student_name').textContent = studentName;
+        document.getElementById('modal_amount').value = balance;
+        document.getElementById('modal_max_balance').textContent = parseFloat(balance).toFixed(2);
+        
+        const modal = document.getElementById('paymentModal');
+        const content = document.getElementById('paymentModalContent');
+        
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+    
+    function closePaymentModal() {
+        const modal = document.getElementById('paymentModal');
+        const content = document.getElementById('paymentModalContent');
+        
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+        
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 200);
+    }
+</script>
+{% endblock %}

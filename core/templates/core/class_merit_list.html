@@ -1,0 +1,187 @@
+{% load exam_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Merit List - {{ class_obj.name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            @page { size: landscape; margin: 0.5cm; }
+            body { padding: 0 !important; margin: 0 !important; background: white !important; font-size: 8pt !important; }
+            .print-table { border: 1px solid #cbd5e1; width: 100%; border-collapse: collapse; table-layout: auto; }
+            .print-table th, .print-table td { border: 1px solid #cbd5e1 !important; padding: 2px 1px !important; }
+            .print-table thead { display: table-header-group !important; }
+            .print-table tbody tr { page-break-inside: avoid; }
+            .italic-scores span { font-style: italic !important; }
+            
+            /* High density subject headers */
+            .subject-header {
+                writing-mode: vertical-rl;
+                transform: rotate(180deg);
+                white-space: nowrap;
+                padding: 8px 2px !important;
+                font-size: 8px !important;
+                max-height: 100px;
+            }
+            .max-w-5xl { max-width: 100% !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 p-4 md:p-8">
+    <div class="max-w-5xl mx-auto bg-white p-6 md:p-10 shadow-sm border border-slate-200">
+        <!-- Header -->
+        <div class="flex justify-between items-start mb-6 border-b-2 border-slate-800 pb-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 uppercase leading-tight">{{ class_obj.grade.school.name|default:"SCHOOL MANAGEMENT SYSTEM" }}</h1>
+                <h2 class="text-lg md:text-xl font-bold text-slate-700 mt-1 uppercase tracking-wider">CLASS MERIT LIST / STREAM PERFORMANCE</h2>
+                <div class="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-sm font-semibold text-slate-500">
+                    <span>CLASS: <strong class="text-slate-800">{{ class_obj.name }}</strong></span>
+                    <span>GRADE: <strong class="text-slate-800">{{ class_obj.grade.name }}</strong></span>
+                    {% if exam_obj %}
+                        <span>EXAM: <strong class="text-slate-800">{{ exam_obj.name }}</strong></span>
+                        <span>PERIOD: <strong class="text-slate-800">{{ exam_obj.period }}</strong></span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="text-right">
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Generated On</p>
+                <p class="text-[12px] font-bold text-slate-700">{{ today|date:"d M, Y" }} {{ today|date:"H:i" }}</p>
+                
+                <button onclick="window.print()" class="no-print mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold shadow-sm hover:bg-indigo-700 transition-colors flex items-center gap-2 ml-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Print List
+                </button>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-left print-table border-collapse">
+                <thead>
+                    <tr class="bg-slate-100 border-y border-slate-300">
+                        <th rowspan="2" class="px-2 py-2 text-[9px] font-bold text-slate-600 uppercase tracking-tighter text-center">Rank</th>
+                        <th rowspan="2" class="px-2 py-2 text-[9px] font-bold text-slate-600 uppercase tracking-tighter">Admission</th>
+                        <th rowspan="2" class="px-2 py-2 text-[9px] font-bold text-slate-600 uppercase tracking-tighter">Student Name</th>
+                        {% for subject in table_subjects %}
+                            {% if subject.papers|length > 1 %}
+                                <th colspan="{{ subject.papers|length|add:1 }}" class="px-2 py-2 text-[9px] font-bold text-slate-600 uppercase tracking-tighter text-center border-l border-slate-300">
+                                    <div class="print:subject-header mx-auto">{{ subject.abbr|default:subject.name }}</div>
+                                </th>
+                            {% else %}
+                                <th rowspan="2" class="px-2 py-2 text-[9px] font-bold text-slate-600 uppercase tracking-tighter text-center border-l border-slate-300">
+                                    <div class="print:subject-header mx-auto">{{ subject.abbr|default:subject.name }}</div>
+                                </th>
+                            {% endif %}
+                        {% endfor %}
+                        <th colspan="3" class="px-2 py-2 text-[9px] font-bold text-slate-600 uppercase tracking-tighter text-center border-l border-slate-300 bg-slate-200/50">Combined</th>
+                    </tr>
+                    <tr class="bg-slate-50 border-b border-slate-300">
+                        {% for subject in table_subjects %}
+                            {% if subject.papers|length > 1 %}
+                                {% for paper in subject.papers %}
+                                    <th class="px-1 py-1 text-[7px] font-bold text-slate-500 uppercase text-center border-l border-slate-200" title="{{ paper.name }}">
+                                        <div class="print:subject-header mx-auto">{{ paper.abbr|default:paper.name }}</div>
+                                    </th>
+                                {% endfor %}
+                                <th class="px-1 py-1 text-[7px] font-bold text-slate-700 uppercase text-center border-l border-slate-200 bg-slate-100/50">Tot</th>
+                            {% endif %}
+                        {% endfor %}
+                        <th class="px-1 py-1 text-[7px] font-bold text-slate-600 uppercase text-center border-l border-slate-300 bg-slate-200/50">Pts</th>
+                        <th class="px-1 py-1 text-[7px] font-bold text-slate-600 uppercase text-center border-l border-slate-200 bg-slate-200/50">Total</th>
+                        <th class="px-1 py-1 text-[7px] font-bold text-slate-600 uppercase text-center border-l border-slate-200 bg-slate-200/50">Avg %</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 italic-scores">
+                    {% for student_data in ranked_students %}
+                        <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                            <td class="px-2 py-1.5 text-[11px] font-bold text-slate-800 text-center">#{{ student_data.rank }}</td>
+                            <td class="px-2 py-1.5 text-[10px] font-semibold text-slate-500">{{ student_data.student.adm_no }}</td>
+                            <td class="px-2 py-1.5 text-[11px] font-bold text-slate-800 uppercase truncate max-w-[120px]">
+                                {{ student_data.student.first_name }} {{ student_data.student.last_name }}
+                            </td>
+                            {% for subject in table_subjects %}
+                                {% with subject_score=student_data.subject_scores|lookup:subject.name %}
+                                    {% if subject.papers|length > 1 %}
+                                        {% for paper in subject.papers %}
+                                            {% with p_detail=subject_score.paper_details|lookup:paper.name %}
+                                                <td class="px-1 py-1.5 text-center border-l border-slate-100 whitespace-nowrap">
+                                                    <div class="flex items-center justify-center gap-1 leading-none">
+                                                        <span class="text-[10px] font-bold text-slate-800">{{ p_detail.score|default:"-" }}</span>
+                                                        <span class="text-[8px] font-black text-indigo-500">{{ p_detail.grade|default:"" }}</span>
+                                                    </div>
+                                                </td>
+                                            {% endwith %}
+                                        {% endfor %}
+                                        <td class="px-1 py-1.5 text-center border-l border-slate-200 bg-slate-100/30 whitespace-nowrap">
+                                            <div class="flex items-center justify-center gap-1 leading-none">
+                                                <span class="font-bold text-[11px] text-slate-900">{{ subject_score.score|default:"-" }}</span>
+                                                <span class="text-[9px] font-black text-indigo-600">{{ subject_score.grade }}</span>
+                                            </div>
+                                        </td>
+                                    {% else %}
+                                        <td class="px-1 py-1.5 text-center border-l border-slate-100 whitespace-nowrap">
+                                            {% if subject_score %}
+                                                <div class="flex items-center justify-center gap-1 leading-none">
+                                                    <span class="text-[11px] font-bold text-slate-800">{{ subject_score.score }}</span>
+                                                    <span class="text-[9px] font-black text-indigo-500">{{ subject_score.grade }}</span>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-slate-300 font-bold">-</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endif %}
+                                {% endwith %}
+                            {% endfor %}
+                            <td class="px-2 py-1.5 text-center border-l border-slate-200 bg-slate-100/30 font-extrabold text-[12px] text-indigo-500">{{ student_data.total_points }}</td>
+                            <td class="px-2 py-1.5 text-center border-l border-slate-200 bg-slate-100/30 font-extrabold text-[12px] text-slate-900">{{ student_data.total_score }}</td>
+                            <td class="px-2 py-1.5 text-center border-l border-slate-100 bg-indigo-50/20 font-extrabold text-[12px] text-indigo-600">{{ student_data.avg_score }}%</td>
+                        </tr>
+                    {% endfor %}
+                    <!-- Combined Footer directly in tbody for 'Only on Last Page' effect -->
+                    <tr class="bg-slate-800 text-white font-bold">
+                        <td colspan="3" class="px-2 py-2.5 text-[9px] uppercase tracking-widest text-slate-300 text-center">Class Summary</td>
+                        {% for subject in table_subjects %}
+                            {% with stats=subject_footer_stats|lookup:subject.name %}
+                            <td colspan="{% if subject.papers|length > 1 %}{{ subject.papers|length|add:1 }}{% else %}1{% endif %}" class="px-2 py-2.5 text-center border-l border-slate-700">
+                                <span class="text-[10px]">{{ stats.avg|default:"-" }}%</span>
+                                <span class="inline-block ml-0.5 text-[8px] text-indigo-300 uppercase">{{ stats.grade }}</span>
+                            </td>
+                            {% endwith %}
+                        {% endfor %}
+                        <td colspan="3" class="px-2 py-2.5 text-center border-l border-slate-700 bg-indigo-900/50 text-[12px]">
+                             {{ class_average }}%
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer / Signatures -->
+        <div class="mt-16 grid grid-cols-3 gap-8">
+            <div class="border-t border-slate-300 pt-4">
+                <p class="text-[10px] font-bold text-slate-400 uppercase mb-8">Class Teacher's Signature</p>
+                <div class="w-full border-b border-slate-400 border-dashed"></div>
+            </div>
+            <div class="border-t border-slate-300 pt-4">
+                <p class="text-[10px] font-bold text-slate-400 uppercase mb-8">Head of Department</p>
+                <div class="w-full border-b border-slate-400 border-dashed"></div>
+            </div>
+            <div class="border-t border-slate-300 pt-4">
+                <p class="text-[10px] font-bold text-slate-400 uppercase mb-8">Principal's / Seal</p>
+                <div class="w-full border-b border-slate-400 border-dashed"></div>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center no-print">
+            <p class="text-[11px] text-slate-400 font-medium italic">Professional stream performance analysis report generated by Excel School Management System.</p>
+        </div>
+    </div>
+</body>
+</html>

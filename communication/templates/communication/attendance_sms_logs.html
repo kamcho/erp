@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% load attendance_filters %}
+
+{% block title %}Attendance SMS Logs — Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'core:attendance-analytics' %}" class="text-indigo-600 hover:text-indigo-800 transition-colors">
+                <i class="fas fa-arrow-left text-sm"></i>
+            </a>
+            <h1 class="text-xl md:text-[26px] font-black text-slate-900 tracking-tight">Attendance Notification Logs</h1>
+        </div>
+        <p class="text-[14px] text-slate-500 font-medium">Track and resend SMS notifications for student attendance.</p>
+    </div>
+    {% if failed_count > 0 %}
+    <form method="POST" onsubmit="return confirm('Resend all {{ failed_count }} failed notifications?')">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="resend_failed">
+        <button type="submit" class="px-6 py-3 bg-rose-600 text-white rounded-xl text-[12px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg shadow-rose-200 flex items-center gap-2">
+            <i class="fas fa-redo-alt"></i>
+            Resend All Failed ({{ failed_count }})
+        </button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Summary Stats -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white rounded-[20px] p-6 border border-slate-200 shadow-sm relative overflow-hidden group">
+        <div class="absolute -right-4 -top-4 w-24 h-24 bg-indigo-50 rounded-full opacity-20 group-hover:scale-110 transition-transform"></div>
+        <div class="flex items-center gap-4 mb-2">
+            <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 shadow-sm">
+                <i class="fas fa-wallet"></i>
+            </div>
+            <div class="text-[24px] font-black text-slate-800">{{ sms_balance }}</div>
+        </div>
+        <p class="text-[12px] font-black text-slate-400 uppercase tracking-widest">SMS Balance</p>
+    </div>
+    <div class="bg-white rounded-[20px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-4 mb-2">
+            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center border border-blue-100 shadow-sm">
+                <i class="fas fa-paper-plane"></i>
+            </div>
+            <div class="text-[24px] font-black text-slate-800">{{ logs|length }}</div>
+        </div>
+        <p class="text-[12px] font-black text-slate-400 uppercase tracking-widest">Recent Logs</p>
+    </div>
+    <div class="bg-white rounded-[20px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-4 mb-2">
+            <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center border border-rose-100 shadow-sm">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="text-[24px] font-black text-slate-800">{{ failed_count }}</div>
+        </div>
+        <p class="text-[12px] font-black text-slate-400 uppercase tracking-widest">Failed Deliveries</p>
+    </div>
+    <div class="bg-white rounded-[20px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-4 mb-2">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center border border-emerald-100 shadow-sm">
+                <i class="fas fa-check-double"></i>
+            </div>
+            <div class="text-[24px] font-black text-slate-800">{{ logs|length|subtract:failed_count|default:0 }}</div>
+        </div>
+        <p class="text-[12px] font-black text-slate-400 uppercase tracking-widest">Successful</p>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-[20px] p-6 border border-slate-200 shadow-sm mb-8">
+    <form method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="md:col-span-2 relative">
+            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="text" name="q" value="{{ search_query }}" placeholder="Search student, phone, or message..." 
+                class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all">
+        </div>
+        <div class="relative">
+            <i class="far fa-calendar absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="date" name="date" value="{{ date_filter }}" class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all">
+        </div>
+        <select name="status" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer">
+            <option value="">All Statuses</option>
+            <option value="Success" {% if status_filter == 'Success' %}selected{% endif %}>Success</option>
+            <option value="Failed" {% if status_filter == 'Failed' %}selected{% endif %}>Failed</option>
+        </select>
+        <button type="submit" class="w-full py-3 bg-slate-900 text-white rounded-xl text-[12px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm">
+            Filter Results
+        </button>
+    </form>
+</div>
+
+<!-- Logs Table -->
+<div class="bg-white rounded-[20px] border border-slate-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-50/50">
+                    <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100">Student & Class</th>
+                    <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100">Recipient</th>
+                    <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100">Message Content</th>
+                    <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100">Status</th>
+                    <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100">Time</th>
+                    <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50">
+                {% for log in logs %}
+                <tr class="hover:bg-slate-50/50 transition-colors group">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-[11px] border border-slate-200 group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-100 transition-colors">
+                                {{ log.student.first_name|first }}{{ log.student.last_name|first }}
+                            </div>
+                            <div>
+                                <p class="text-[14px] font-bold text-slate-800">{{ log.student.get_full_name }}</p>
+                                <p class="text-[11px] text-slate-400 font-bold uppercase">{{ log.attendance_record.session.class_id.grade.name }} - {{ log.attendance_record.session.class_id.name }}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-col">
+                            <span class="text-[13px] font-bold text-slate-700">{{ log.guardian.get_full_name|default:"Guardian" }}</span>
+                            <span class="text-[11px] text-slate-400 font-medium">{{ log.recipient_phone }}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 max-w-xs">
+                        <p class="text-[13px] text-slate-600 leading-relaxed line-clamp-2" title="{{ log.message }}">{{ log.message }}</p>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border
+                            {% if log.status == 'Success' %}bg-emerald-50 text-emerald-600 border-emerald-100
+                            {% else %}bg-rose-50 text-rose-600 border-rose-100{% endif %}">
+                            <i class="fas {% if log.status == 'Success' %}fa-check-circle{% else %}fa-times-circle{% endif %} mr-1"></i>
+                            {{ log.status }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-col">
+                            <span class="text-[12px] font-bold text-slate-700">{{ log.dispatched_at|date:"d M Y" }}</span>
+                            <span class="text-[11px] text-slate-400 font-medium">{{ log.dispatched_at|time:"H:i" }}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        {% if log.status == 'Failed' %}
+                            {% if log.dispatched_at.date == today %}
+                            <form method="POST" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="resend_id" value="{{ log.id }}">
+                                <button type="submit" class="p-2.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all" title="Resend Message">
+                                    <i class="fas fa-redo-alt text-sm"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="text-[10px] font-bold text-slate-300 italic px-2">Expired</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="py-20 text-center">
+                        <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-dashed border-slate-200">
+                            <i class="fas fa-history text-slate-300 text-xl"></i>
+                        </div>
+                        <p class="text-[15px] font-bold text-slate-600">No logs found</p>
+                        <p class="text-[13px] text-slate-400 font-medium">Any attendance notifications sent will appear here.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

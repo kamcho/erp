@@ -1,0 +1,150 @@
+from django.core.management.base import BaseCommand
+import random
+from datetime import date, timedelta
+from core.models import School, Grade, Class, Student, StudentProfile
+
+class Command(BaseCommand):
+    help = "Seed the database with 30 students using random Kenyan names and varying grades."
+
+    def handle(self, *args, **options):
+        # 1. Get Schools (ID >= 2)
+        schools = School.objects.all()
+        if not schools.exists():
+            self.stdout.write(self.style.WARNING("No schools found with ID >= 2."))
+            return
+
+        grade_choices = [
+            'Play Group', 'PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3',
+            'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9'
+        ]
+
+        # Kenyan Names logic
+        kenyan_male_names = [
+            "Otieno", "Kamau", "Juma", "Kibet", "Mwangi", "Maina", "Kariuki", 
+            "Mutua", "Musyoka", "Wanyama", "Odhiambo", "Anyona", "Makori", 
+            "Momanyi", "Sagini", "Onchiri", "Omondi", "Kimani"
+        ]
+        kenyan_female_names = [
+            "Akinyi", "Atieno", "Wanjiru", "Njeri", "Chebet", "Cherotich", 
+            "Mumbua", "Faith", "Zawadi", "Neema", "Amani", "Halima", 
+            "Fatuma", "Asha", "Mariam", "Nyanchoka", "Kerubo", "Moraa"
+        ]
+        kenyan_surnames = [
+            "Omondi", "Njau", "Gicheru", "Njoroge", "Karanja", "Musa", 
+            "Bakari", "Ali", "Opiyo", "Wafula", "Simiyu", "Kiptoo"
+        ]
+
+        total_seeded = 0
+        current_year = date.today().year
+        Student.objects.all().delete()
+        for school in schools:
+            self.stdout.write(f"Seeding data for school: {school.name}...")
+            
+            # School-specific prefix for Adm No
+            prefix = "".join([word[0] for word in school.name.split() if word]).upper()[:3]
+            if not prefix: prefix = "SCH"
+
+            # 2. Create Grades for this school
+            grades = []
+            for g_name in grade_choices:
+                g, _ = Grade.objects.get_or_create(name=g_name)
+                grades.append(g)
+
+            # 3. Create Classes for this school
+            classes = []
+            for g in grades:
+                # Define streams based on grade level as requested
+                if g.name in ['Play Group', 'PP1', 'PP2']:
+                    streams = ["Indigo"]
+                elif g.name.startswith('Grade'):
+                    try:
+                        num = int(g.name.split()[-1])
+                        if num <= 6:
+                            streams = ["Indigo", "Amber"]
+                        else:
+                            streams = ["Tiger", "Cheetah"]
+                    except (ValueError, IndexError):
+                        streams = ["Indigo", "Amber"]
+                else:
+                    streams = ["Indigo", "Amber"]
+
+                for s_name in streams:
+                    c, _ = Class.objects.get_or_create(name=s_name, grade=g, school=school)
+                    classes.append(c)
+
+            # 4. Create Students (460 males, 545 females as currently typed)
+            males_to_create = 460
+            females_to_create = 545
+            
+            students_data = []
+            for _ in range(males_to_create):
+                students_data.append(('male', random.choice(kenyan_male_names)))
+            for _ in range(females_to_create):
+                students_data.append(('female', random.choice(kenyan_female_names)))
+            
+            random.shuffle(students_data)
+
+            for i, (gender, first_name) in enumerate(students_data, 1):
+                middle_name = random.choice(kenyan_male_names + kenyan_female_names)
+                last_name = random.choice(kenyan_surnames)
+                # Admission number: SchoolPrefix-0001 (incremental)
+                adm_no = f"{prefix}-{i:04d}" 
+                
+                # Random DOB between 4 and 15 years ago
+                birth_year = current_year - random.randint(4, 15)
+                date_of_birth = date(birth_year, random.randint(1, 12), random.randint(1, 28))
+                
+                joined_date = date.today() - timedelta(days=random.randint(0, 365*2))
+                location = random.choice(["Nairobi", "Mombasa", "Kisumu", "Nakuru", "Eldoret"])
+
+                # Fee Category Distribution logic
+                category_roll = random.random()
+                if category_roll < 0.80:
+                    f_cat = 'day'
+                elif category_roll < 0.93:
+                    f_cat = 'boarder'
+                elif category_roll < 0.97:
+                    f_cat = 'staff_day'
+                elif category_roll < 0.99:
+                    f_cat = 'staff_boarder'
+                else:
+                    f_cat = 'director'
+
+                student = Student.objects.create(
+                    first_name=first_name,
+                    middle_name=middle_name,
+                    last_name=last_name,
+                    adm_no=adm_no,
+                    date_of_birth=date_of_birth,
+                    joined_date=joined_date,
+                    gender=gender,
+                    location=location,
+                    fee_category=f_cat,
+                    is_boarder=(f_cat in ('boarder', 'staff_boarder'))
+                )
+
+                # Assigned class (ensure all grades covered first then random)
+                if i < len(classes):
+                    assigned_class = classes[i]
+                else:
+                    assigned_class = random.choice(classes)
+
+                # Fee balance logic
+                rand_val = random.random()
+                if rand_val < 0.2:
+                    fee_balance = random.randint(-5000, -500)
+                elif rand_val < 0.8:
+                    fee_balance = random.randint(1000, 20000)
+                else:
+                    fee_balance = 0
+
+                StudentProfile.objects.create(
+                    student=student,
+                    class_id=assigned_class,
+                    school=school,
+                    fee_balance=fee_balance,
+                    discipline=random.randint(60, 100)
+                )
+                total_seeded += 1
+
+        self.stdout.write(self.style.SUCCESS(f"Successfully seeded {total_seeded} students across {schools.count()} schools."))

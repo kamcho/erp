@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if form.instance.pk %}Edit User{% else %}Create User{% endif %} | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div>
+    <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{% if form.instance.pk %}Edit User Profile{% else %}Add New User{% endif %}</h1>
+    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mt-0.5">
+        {% if form.instance.pk %}Update the details and permissions for this user account.{% else %}Create a new staff or guardian profile manually.{% endif %}
+    </p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto pb-12">
+    <form method="post">
+        {% csrf_token %}
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Main Content Area -->
+            <div class="lg:col-span-8 space-y-6">
+                <!-- Validation Errors -->
+                {% if form.non_field_errors %}
+                <div class="bg-rose-50 border border-rose-200 rounded-2xl p-5 flex items-start gap-4 shadow-sm">
+                    <div class="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+                        <i class="fas fa-exclamation-triangle text-lg"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-rose-900 mb-1">Please correct the following errors</h4>
+                        {% for error in form.non_field_errors %}
+                            <p class="text-sm font-medium text-rose-700">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Personal Information Card -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center">
+                            <i class="fas fa-user font-bold"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-800">Personal Information</h3>
+                    </div>
+                    
+                    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-1.5 md:col-span-2">
+                            <label class="block text-[13px] font-bold text-slate-700">Email Address <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                    <i class="fas fa-envelope text-sm"></i>
+                                </div>
+                                {{ form.email }}
+                            </div>
+                            {% if form.email.errors %}
+                                <p class="text-xs font-bold text-rose-500 mt-1">{{ form.email.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="block text-[13px] font-bold text-slate-700">First Name <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                    <i class="fas fa-id-badge text-sm"></i>
+                                </div>
+                                {{ form.first_name }}
+                            </div>
+                            {% if form.first_name.errors %}
+                                <p class="text-xs font-bold text-rose-500 mt-1">{{ form.first_name.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="block text-[13px] font-bold text-slate-700">Last Name <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                    <i class="fas fa-id-badge text-sm"></i>
+                                </div>
+                                {{ form.last_name }}
+                            </div>
+                            {% if form.last_name.errors %}
+                                <p class="text-xs font-bold text-rose-500 mt-1">{{ form.last_name.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="space-y-1.5 md:col-span-2">
+                            <label class="block text-[13px] font-bold text-slate-700">Phone Number <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                    <i class="fas fa-phone-alt text-sm"></i>
+                                </div>
+                                {{ form.phone_number }}
+                            </div>
+                            {% if form.phone_number.errors %}
+                                <p class="text-xs font-bold text-rose-500 mt-1">{{ form.phone_number.errors.0 }}</p>
+                            {% endif %}
+                            <p class="text-[11px] font-medium text-slate-500 mt-1">Include country code for external SMS messaging.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Details Card -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mt-6">
+                    <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                            <i class="fas fa-lock font-bold"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-800">Security Details</h3>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div class="space-y-1.5 max-w-lg">
+                            <label class="block text-[13px] font-bold text-slate-700">{% if form.instance.pk %}Change Password{% else %}Account Password <span class="text-rose-500">*</span>{% endif %}</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                    <i class="fas fa-key text-sm"></i>
+                                </div>
+                                {{ form.password }}
+                            </div>
+                            {% if form.instance.pk %}
+                                <p class="text-[11px] font-medium text-amber-600 mt-1"><i class="fas fa-info-circle mr-1"></i> Leave blank to keep existing password.</p>
+                            {% endif %}
+                            {% if form.password.errors %}
+                                <p class="text-xs font-bold text-rose-500 mt-1">{{ form.password.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar Area -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- Role & Organization Card -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                            <i class="fas fa-sitemap font-bold"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-800">Access & Organization</h3>
+                    </div>
+                    
+                    <div class="p-6 space-y-5">
+                        <div class="space-y-1.5">
+                            <label class="block text-[13px] font-bold text-slate-700">System Role <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                {{ form.role }}
+                            </div>
+                            {% if form.role.errors %}
+                                <p class="text-xs font-bold text-rose-500 mt-1">{{ form.role.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="space-y-1.5" id="school-container">
+                            <label class="block text-[13px] font-bold text-slate-700">Assigned School</label>
+                            <div class="relative">
+                                {{ form.school }}
+                            </div>
+                            <p class="text-[11px] font-medium text-slate-500 mt-1">If blank, admin users gain multi-school control.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Extended Permissions Card -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hidden" id="field-container-permissions">
+                    <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                            <i class="fas fa-user-shield font-bold"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-800">Extended Permissions</h3>
+                    </div>
+                    
+                    <div class="p-4 bg-slate-50/30">
+                        <div class="space-y-1">
+                            {% for field in form %}
+                                {% if field.name == 'is_exam_manager' or field.name == 'is_exam_officer' or field.name == 'is_headteacher' or field.name == 'is_active' %}
+                                <label class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl cursor-pointer hover:border-indigo-300 transition-colors shadow-sm mb-2 group">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-6 h-6 rounded-md bg-slate-100 text-slate-400 group-hover:text-indigo-500 group-hover:bg-indigo-50 flex items-center justify-center transition-colors">
+                                            {% if field.name == 'is_exam_manager' %} <i class="fas fa-clipboard-list text-xs"></i> 
+                                            {% elif field.name == 'is_exam_officer' %} <i class="fas fa-marker text-xs"></i>
+                                            {% elif field.name == 'is_headteacher' %} <i class="fas fa-user-tie text-xs"></i>
+                                            {% else %} <i class="fas fa-power-off text-xs"></i> {% endif %}
+                                        </div>
+                                        <span class="text-[13px] font-bold text-slate-700 group-hover:text-slate-900">{{ field.label }}</span>
+                                    </div>
+                                    <div class="relative flex items-center">
+                                        {{ field }}
+                                    </div>
+                                </label>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-3">
+                    <button type="submit" class="w-full px-4 py-3 bg-[#006aff] hover:bg-[#005ce6] text-white rounded-xl font-bold text-[13px] shadow-sm shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-save"></i> Save Account
+                    </button>
+                    <a href="{% url 'core:dashboard' %}" class="w-full px-4 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl font-bold text-[13px] shadow-sm transition-all text-center">
+                        Cancel
+                    </a>
+                </div>
+
+                {% if form.instance.pk %}
+                <div class="flex items-center gap-2 ml-2 mt-4 text-slate-400">
+                    <i class="fas fa-history text-xs opacity-70"></i>
+                    <p class="text-xs font-medium">Last Login: <span class="font-bold text-slate-500">{{ form.instance.last_login|default:"Never logged in" }}</span></p>
+                </div>
+                {% endif %}
+            </div>
+            
+        </div>
+    </form>
+</div>
+
+<script>
+    // Style text inputs based on professional dashboard UI
+    document.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]').forEach(el => {
+        el.className = 'w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-50 transition-all shadow-sm';
+    });
+
+    // Style select dropdowns
+    document.querySelectorAll('select').forEach(el => {
+        el.className = 'w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-800 outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-50 transition-all shadow-sm appearance-none cursor-pointer';
+        
+        // Add custom indicator wrapping
+        const wrapper = document.createElement('div');
+        wrapper.className = 'relative flex items-center w-full';
+        el.parentNode.insertBefore(wrapper, el);
+        wrapper.appendChild(el);
+        
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-chevron-down absolute right-4 text-slate-400 text-[10px] pointer-events-none';
+        wrapper.appendChild(icon);
+    });
+
+    // Special styling for checkboxes
+    document.querySelectorAll('input[type="checkbox"]').forEach(el => {
+        el.className = 'w-4 h-4 text-sky-600 bg-slate-100 border-slate-300 rounded focus:ring-sky-500 transition-colors cursor-pointer';
+    });
+
+    // Role-based toggle logic
+    const roleSelect = document.querySelector('select[name="role"]');
+    const permissionsContainer = document.getElementById('field-container-permissions');
+    const schoolContainer = document.getElementById('school-container');
+
+    function handleRoleDisplay() {
+        if(!roleSelect) return;
+        const role = roleSelect.value;
+        
+        // Permissions visibility (Teacher implies extended perm toggles)
+        if (role === 'Teacher') {
+            permissionsContainer.classList.remove('hidden');
+        } else {
+            permissionsContainer.classList.add('hidden');
+        }
+
+        // School relevance (Guardians don't have school direct assignments, usually active system-wide filtering)
+        if (role === 'Guardian') {
+            schoolContainer.style.opacity = '0.4';
+            schoolContainer.style.pointerEvents = 'none';
+            const schoolSelect = document.querySelector('select[name="school"]');
+            if(schoolSelect) schoolSelect.value = "";
+        } else {
+            schoolContainer.style.opacity = '1';
+            schoolContainer.style.pointerEvents = 'auto';
+        }
+    }
+
+    if (roleSelect) {
+        roleSelect.addEventListener('change', handleRoleDisplay);
+        handleRoleDisplay();
+    }
+</script>
+{% endblock %}
+

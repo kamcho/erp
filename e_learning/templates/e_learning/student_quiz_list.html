@@ -1,0 +1,668 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Student Learner Dashboard | {{ student.get_full_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    
+    body { 
+        background-color: #f7f9fc; 
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        color: #1a1e23;
+    }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 24px;
+        padding: 24px;
+    }
+
+    @media (max-width: 1280px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 1024px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Card Styling */
+    .coursify-card {
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 24px;
+        border: 1px solid rgba(0,0,0,0.02);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.01);
+    }
+
+    /* Left Sidebar Styling */
+    .profile-section {
+        text-align: center;
+        margin-top: -20px;
+    }
+
+    .profile-avatar-wrapper {
+        position: relative;
+        width: 110px;
+        height: 110px;
+        margin: 0 auto 16px;
+        background: white;
+        padding: 6px;
+        border-radius: 50%;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+        border: 1px solid #f1f5f9;
+    }
+
+    .profile-avatar-wrapper img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        border-radius: 100px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        background: #f0fdf4;
+        color: #16a34a;
+        margin-bottom: 8px;
+    }
+
+    /* Icon styles */
+    .icon-box {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: #f8fafc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+    .icon-box:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+    }
+
+    .chat-btn {
+        background: #eff6ff;
+        color: #3b82f6;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 13px;
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Stats & Progress */
+    .activity-bar {
+        height: 160px;
+        display: flex;
+        align-items: flex-end;
+        gap: 12px;
+        margin-top: 16px;
+    }
+
+    .bar-group {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .bar-stack {
+        width: 100%;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 4px;
+        overflow: hidden;
+    }
+
+    .stack-segment {
+        width: 100%;
+        border-radius: 4px;
+    }
+
+    /* Chart Overlays */
+    .gauge-container {
+        position: relative;
+        height: 140px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .gauge-value {
+        position: absolute;
+        bottom: 25px;
+        text-align: center;
+    }
+
+    /* Course List Styling */
+    .course-row {
+        padding: 14px;
+        border-radius: 16px;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+    }
+    .course-row:hover {
+        background: #fcfcfd;
+        border-color: #f1f5f9;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    }
+
+    .course-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+
+    .stat-pill {
+        padding: 4px 12px;
+        border-radius: 100px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+    .pill-yellow { background: #fffbeb; color: #d97706; }
+    .pill-green { background: #f0fdf4; color: #16a34a; }
+
+    .progress-circle {
+        width: 40px;
+        height: 40px;
+        position: relative;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="p-6">
+    <!-- Responsive Header -->
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+        <div>
+            <div class="flex items-center gap-2 text-[12px] font-semibold text-slate-400 mb-1">
+                <i class="fas fa-arrow-left"></i>
+                <span>Student Details</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 md:gap-4">
+                <h1 class="text-xl md:text-2xl font-extrabold text-slate-900">Student Details</h1>
+                <nav class="hidden sm:flex items-center gap-2 text-[11px] font-bold">
+                    <span class="text-slate-400">Dashboard</span>
+                    <i class="fas fa-chevron-right text-[8px] text-slate-300"></i>
+                    <span class="text-slate-400">Students</span>
+                    <i class="fas fa-chevron-right text-[8px] text-slate-300"></i>
+                    <span class="text-indigo-500">Student Details</span>
+                </nav>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 md:gap-6 w-full lg:w-auto">
+            <!-- <div class="relative w-full sm:w-64">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" placeholder="Search anything" class="bg-white border-none rounded-full pl-11 pr-6 py-2.5 w-full shadow-sm text-sm outline-none focus:ring-2 focus:ring-indigo-100 transition-all">
+            </div> -->
+            <div class="flex items-center gap-3 ml-auto sm:ml-0">
+                <div class="text-right">
+                    <p class="text-sm font-extrabold text-slate-900">{{ student.get_full_name }}</p>
+                    <p class="text-[11px] font-bold text-slate-400">Student</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-slate-100 overflow-hidden ring-2 ring-white shadow-sm">
+                    {% if student.photo %}
+                        <img src="{{ student.photo.url }}" alt="{{ student.get_full_name }}" class="w-full h-full object-cover">
+                    {% else %}
+                        <img src="{% static 'img/default-avatar.png' %}" alt="">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="dashboard-grid">
+        
+
+
+        <!-- CENTER COLUMN -->
+        <div class="h-full">
+            <!-- Learning Activity -->
+            <div class="coursify-card h-full flex flex-col">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-sm font-extrabold text-slate-800">Learning Activity</h3>
+                    </div>
+                    <select class="bg-slate-50 border-none rounded-lg text-xs font-bold py-1 px-2 outline-none"><option>This Week</option></select>
+                </div>
+
+                <div class="h-48 flex-grow">
+                    <canvas id="stackedActivityChart"></canvas>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 mt-4">
+                    {% for sub in subject_performances_list|slice:":3" %}
+                    <div class="p-3 rounded-xl {% cycle 'bg-pink-50' 'bg-amber-50' 'bg-indigo-50' %}">
+                        <p class="text-md font-black text-slate-800">{{ sub.score }}%</p>
+                        <p class="text-[9px] font-bold text-slate-500 truncate">{{ sub.name }}</p>
+                    </div>
+                    {% empty %}
+                    <div class="col-span-3 text-center py-4 text-[10px] text-slate-400 font-bold">No subject data yet</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="h-full">
+            <div class="coursify-card h-full flex flex-col">
+                <div class="flex items-center justify-between mb-8">
+                    <h3 class="text-md font-extrabold text-slate-800">Performance</h3>
+                    <select class="text-[10px] font-bold text-slate-400 outline-none"><option>Last 6 Months</option></select>
+                </div>
+
+                <div class="gauge-container flex-grow">
+                    <canvas id="performanceGaugeChart"></canvas>
+                    <div class="gauge-value">
+                        <p class="text-[11px] font-bold text-slate-400 mb-1">Total Score</p>
+                        <p class="text-3xl font-black text-slate-800">{{ avg_score|floatformat:0 }}%</p>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="mt-8 space-y-4">
+                    <div class="flex items-center justify-between text-[11px] font-bold">
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm bg-pink-400"></div> <span class="text-slate-400">Excellent (80+)</span></div>
+                        <span class="text-slate-700">{{ score_dist.excellent }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px] font-bold">
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm bg-yellow-400"></div> <span class="text-slate-400">Good (60-79)</span></div>
+                        <span class="text-slate-700">{{ score_dist.good }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px] font-bold">
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm bg-indigo-300"></div> <span class="text-slate-400">Pass (40-59)</span></div>
+                        <span class="text-slate-700">{{ score_dist.pass }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px] font-bold">
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm bg-slate-200"></div> <span class="text-slate-400">Needs Review (<40)</span></div>
+                        <span class="text-slate-700">{{ score_dist.fail }}</span>
+                    </div>
+                </div>
+
+                <!-- Small Line Chart -->
+                <div class="h-32 mt-8">
+                    <canvas id="performanceLineMiniChart"></canvas>
+                </div>
+
+                <div class="mt-6 bg-amber-50 rounded-xl p-4">
+                    <p class="text-[11px] font-bold text-amber-800 leading-tight">
+                        Success is the sum of small efforts, repeated day in and day out. 😊
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- FULL WIDTH ASSESSMENTS -->
+    <div class="px-6 space-y-6">
+        <!-- Class Assignments -->
+        <div class="coursify-card shadow-sm">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h3 class="text-lg font-extrabold text-slate-800">Class Assignments</h3>
+                    <p class="text-[11px] font-bold text-slate-400 mt-1">Pending tasks and homework assigned by your teachers</p>
+                </div>
+                <button class="bg-indigo-50 text-indigo-600 px-5 py-2.5 rounded-xl text-[11px] font-bold hover:bg-indigo-100 transition-all">View All Assignments</button>
+            </div>
+
+            <div class="space-y-3">
+                {% for item in quiz_data %}
+                {% if item.type == 'assignment' or item.assignment %}
+                <div class="course-row flex items-center justify-between cursor-pointer group hover:bg-slate-50/80 transition-all" onclick="window.location.href='{% if item.type == 'quiz' %}{% url 'e_learning:take_quiz' item.quiz.pk %}{% else %}{% url 'e_learning:take_assignment' item.assignment.id %}{% endif %}'">
+                    <div class="flex items-center gap-5">
+                        <div class="course-icon bg-amber-50 text-amber-500 group-hover:bg-amber-100 transition-colors">
+                            <i class="fas fa-file-signature"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-[15px] font-extrabold text-slate-800">{{ item.quiz.title }}</h4>
+                            <div class="flex items-center gap-3 mt-1">
+                                <span class="text-[11px] font-bold text-slate-400"><i class="fas fa-tag mr-1 opacity-50"></i> {{ item.quiz.get_subject.name|default:"General" }}</span>
+                                <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+                                <span class="text-[11px] font-bold text-indigo-500 uppercase tracking-wider">Assigned Task</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-10">
+                        <div class="flex items-center gap-6 text-[11px] font-bold text-slate-500">
+                            <span class="flex items-center gap-1.5"><i class="far fa-play-circle text-indigo-400"></i> {{ item.question_count|default:15 }} Questions</span>
+                            <span class="flex items-center gap-1.5"><i class="far fa-clock text-indigo-400"></i> {{ item.quiz.time_limit_minutes }} Minutes</span>
+                        </div>
+                        <div class="text-right min-w-[80px]">
+                            <p class="text-[14px] font-black text-slate-800">{{ item.best_score|default:0|floatformat:0 }}%</p>
+                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Best Score</p>
+                        </div>
+                        <span class="status-badge {% if item.best_score >= 50 %}status-completed{% else %}status-ongoing{% endif %}" style="margin-bottom: 0; padding: 6px 16px;">
+                            {% if item.best_score %}Attempted{% else %}Not Started{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Available Tests/Quizzes -->
+        <div id="available-tests" class="coursify-card shadow-sm">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                <div>
+                    <h3 class="text-lg font-extrabold text-slate-800">Available Tests & Quizzes</h3>
+                    <p class="text-[11px] font-bold text-slate-400 mt-1">Open practice tests and self-assessment modules</p>
+                </div>
+                
+                <div class="flex flex-wrap items-center gap-4">
+                    <!-- Grade Filter -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Grade:</span>
+                        <select id="gradeFilter" onchange="applyFilters()" class="bg-white border border-slate-100 rounded-xl px-4 py-2 text-[11px] font-bold outline-none shadow-sm cursor-pointer hover:border-indigo-200 transition-all">
+                            <option value="">All Grades</option>
+                            {% for g in grades %}
+                            <option value="{{ g }}" {% if selected_grade == g %}selected{% endif %}>{{ g }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Subject Filter -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subject:</span>
+                        <select id="subjectFilter" onchange="applyFilters()" class="bg-white border border-slate-100 rounded-xl px-4 py-2 text-[11px] font-bold outline-none shadow-sm cursor-pointer hover:border-indigo-200 transition-all">
+                            <option value="">All Subjects</option>
+                            {% for sub in subjects %}
+                            <option value="{{ sub.id }}" {% if selected_subject == sub.id|stringformat:"s" %}selected{% endif %}>{{ sub.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                {% for item in quiz_data %}
+                {% if item.type == 'quiz' and not item.assignment %}
+                <div class="course-row flex items-center justify-between cursor-pointer group hover:bg-slate-50/80 transition-all" onclick="window.location.href='{% url 'e_learning:take_quiz' item.quiz.pk %}'">
+                    <div class="flex items-center gap-5">
+                        <div class="course-icon bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100 transition-colors">
+                            <i class="fas fa-scroll"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-[15px] font-extrabold text-slate-800">{{ item.quiz.title }}</h4>
+                            <div class="flex items-center gap-3 mt-1">
+                                <span class="text-[11px] font-bold text-slate-400"><i class="fas fa-tag mr-1 opacity-50"></i> {{ item.quiz.get_subject.name|default:"General" }}</span>
+                                <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+                                <span class="text-[11px] font-bold text-indigo-500 uppercase tracking-wider">Practice Quiz</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-10">
+                        <div class="flex items-center gap-6 text-[11px] font-bold text-slate-500">
+                            <span class="flex items-center gap-1.5"><i class="far fa-play-circle text-indigo-400"></i> {{ item.question_count|default:15 }} Questions</span>
+                            <span class="flex items-center gap-1.5"><i class="far fa-clock text-indigo-400"></i> {{ item.quiz.time_limit_minutes }} Minutes</span>
+                        </div>
+                        <div class="text-right min-w-[80px]">
+                            <p class="text-[14px] font-black text-slate-800">{{ item.best_score|default:0|floatformat:0 }}%</p>
+                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Best Score</p>
+                        </div>
+                        <span class="status-badge {% if item.best_score >= 50 %}status-completed{% else %}status-ongoing{% endif %}" style="margin-bottom: 0; padding: 6px 16px;">
+                            {% if item.best_score %}Attempted{% else %}Not Started{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- RECENT TEST RESULTS -->
+    <div class="mt-8 px-6">
+        <div class="coursify-card">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h3 class="text-md font-extrabold text-slate-800">Recent Test Results</h3>
+                    <p class="text-[11px] font-bold text-slate-400 mt-1">Detailed breakdown of your latest assessment attempts</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button class="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg text-[11px] font-bold hover:bg-indigo-100 transition-all">
+                        <i class="fas fa-file-pdf mr-2"></i>Export Results
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                            <th class="pb-4 px-2">Assessment Name</th>
+                            <th class="pb-4 text-center">Outcome</th>
+                            <th class="pb-4 text-center">Time Spent</th>
+                            <th class="pb-4 text-center">Proficiency</th>
+                            <th class="pb-4 text-right px-2">Submission Date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        {% for attempt in all_attempts|slice:":6" %}
+                        <tr class="hover:bg-slate-50/50 transition-all group">
+                            <td class="py-5 px-2">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center text-[11px] font-black border border-slate-100 group-hover:bg-white group-hover:border-indigo-100 group-hover:text-indigo-500 transition-all shadow-sm">
+                                        {{ attempt.quiz.get_subject.name|default:"GE"|slice:":2"|upper }}
+                                    </div>
+                                    <div>
+                                        <p class="text-[14px] font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                                            {% if attempt.attempt_type == 'quiz' %}{{ attempt.quiz.title }}{% else %}{{ attempt.assignment.title }}{% endif %}
+                                        </p>
+                                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{{ attempt.quiz.get_subject.name|default:"General" }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="py-5 text-center">
+                                <div class="inline-flex flex-col items-center">
+                                    <span class="text-[14px] font-black {% if attempt.percentage >= 50 %}text-emerald-600{% else %}text-rose-500{% endif %}">
+                                        {{ attempt.percentage|floatformat:1 }}%
+                                    </span>
+                                    <div class="w-12 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                                        <div class="h-full {% if attempt.percentage >= 50 %}bg-emerald-500{% else %}bg-rose-500{% endif %}" style="width: {{ attempt.percentage }}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="py-5 text-center">
+                                <span class="text-[12px] font-bold text-slate-500 tabular-nums">{{ attempt.duration_display }}</span>
+                            </td>
+                            <td class="py-5 text-center">
+                                <span class="status-badge {% if attempt.percentage >= 50 %}status-active{% else %}bg-rose-50 text-rose-500{% endif %}" style="margin-bottom: 0; padding: 4px 14px; font-size: 9px;">
+                                    {% if attempt.percentage >= 50 %}PASSED{% else %}RETAKE{% endif %}
+                                </span>
+                            </td>
+                            <td class="py-5 text-right px-2">
+                                <p class="text-[12px] font-extrabold text-slate-700">{{ attempt.submitted_at|date:"d M, Y" }}</p>
+                                <p class="text-[10px] font-bold text-slate-300">{{ attempt.submitted_at|date:"H:i A" }}</p>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="py-20 text-center text-slate-300">
+                                <i class="fas fa-inbox text-4xl mb-4 block opacity-20"></i>
+                                <p class="text-xs font-bold">No examination history recorded yet.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-8 pt-6 border-t border-slate-50 flex justify-center">
+                <button class="text-[11px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-700">View Full Transcript <i class="fas fa-chevron-right ml-1"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctxActivity = document.getElementById('stackedActivityChart').getContext('2d');
+    const ctxGauge = document.getElementById('performanceGaugeChart').getContext('2d');
+    const ctxLine = document.getElementById('performanceLineMiniChart').getContext('2d');
+
+    const dailyStats = JSON.parse('{{ daily_stats_json|safe }}');
+    const monthsLabels = JSON.parse('{{ months_labels_json|safe }}');
+    const myTrend = JSON.parse('{{ my_trend_json|safe }}');
+    const peerTrend = JSON.parse('{{ peer_trend_json|safe }}');
+    const scoreDist = JSON.parse('{{ score_dist_json|safe }}');
+
+    // 1. Learning Activity Stacked Bar
+    new Chart(ctxActivity, {
+        type: 'bar',
+        data: {
+            labels: dailyStats.map(d => d.date),
+            datasets: [
+                { 
+                    label: 'Attempts', 
+                    data: dailyStats.map(d => d.count), 
+                    backgroundColor: '#a5b4fc', 
+                    borderRadius: 6, 
+                    barThickness: 18 
+                },
+                { 
+                    label: 'Mastery', 
+                    data: dailyStats.map(d => d.mastery), 
+                    backgroundColor: '#fbcfe8', 
+                    borderRadius: 6, 
+                    barThickness: 18 
+                }
+            ]
+        },
+        options: {
+            plugins: { 
+                legend: { 
+                    display: true,
+                    position: 'bottom',
+                    labels: { boxWidth: 8, font: { size: 10, weight: 'bold' } }
+                } 
+            },
+            scales: {
+                x: { stacked: true, grid: { display: false }, border: { display: false }, ticks: { font: { weight: 'bold', size: 10 } } },
+                y: { stacked: true, grid: { borderDash: [5, 5] }, border: { display: false }, ticks: { display: false } }
+            },
+            maintainAspectRatio: false
+        }
+    });
+
+    // 2. Performance Semi-Circle Gauge
+    new Chart(ctxGauge, {
+        type: 'doughnut',
+        data: {
+            labels: ['Excellent', 'Good', 'Pass', 'Fail'],
+            datasets: [{
+                data: [scoreDist.excellent, scoreDist.good, scoreDist.pass, scoreDist.fail],
+                backgroundColor: ['#f472b6', '#fbbf24', '#818cf8', '#e2e8f0'],
+                borderWidth: 0,
+                borderRadius: 4,
+                spacing: 4
+            }]
+        },
+        options: {
+            rotation: -90,
+            circumference: 180,
+            cutout: '84%',
+            plugins: { legend: { display: false }, tooltip: { enabled: true } },
+            maintainAspectRatio: false
+        }
+    });
+
+    // 3. Mini Line Chart
+    new Chart(ctxLine, {
+        type: 'line',
+        data: {
+            labels: monthsLabels,
+            datasets: [
+                {
+                    label: 'My Score',
+                    data: myTrend,
+                    borderColor: '#f472b6',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#fff',
+                    fill: true,
+                    backgroundColor: (context) => {
+                        const ctx = context.chart.ctx;
+                        const gradient = ctx.createLinearGradient(0, 0, 0, 150);
+                        gradient.addColorStop(0, 'rgba(244, 114, 182, 0.1)');
+                        gradient.addColorStop(1, 'rgba(244, 114, 182, 0)');
+                        return gradient;
+                    }
+                },
+                {
+                    label: 'Peer Avg',
+                    data: peerTrend,
+                    borderColor: '#cbd5e1',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.4,
+                    pointRadius: 0,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            plugins: { 
+                legend: { 
+                    display: true,
+                    position: 'top',
+                    align: 'end',
+                    labels: { boxWidth: 8, font: { size: 9, weight: 'bold' } }
+                } 
+            },
+            scales: {
+                x: { grid: { display: false }, border: { display: false }, ticks: { font: { weight: 'bold', size: 10 } } },
+                y: { display: false, min: 0, max: 100 }
+            },
+            maintainAspectRatio: false
+        }
+    });
+
+    // Filter Application Logic
+    function applyFilters() {
+        const grade = document.getElementById('gradeFilter').value;
+        const subject = document.getElementById('subjectFilter').value;
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('student_id');
+
+        let newUrl = window.location.pathname + '?';
+        if (studentId) newUrl += `student_id=${studentId}&`;
+        if (grade) newUrl += `grade=${encodeURIComponent(grade)}&`;
+        if (subject) newUrl += `subject=${subject}&`;
+
+        window.location.href = newUrl.slice(0, -1) + '#available-tests';
+    }
+</script>
+{% endblock %}

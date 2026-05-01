@@ -1,0 +1,80 @@
+<form id="createExpenseForm" class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+    {% csrf_token %}
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-2">
+            <label class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                <i class="fas fa-tag text-indigo-500 text-[10px]"></i>
+                Purpose / Title
+            </label>
+            {{ form.title }}
+        </div>
+        <div class="space-y-2">
+            <label class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                <i class="fas fa-layer-group text-indigo-500 text-[10px]"></i>
+                Category
+            </label>
+            {{ form.category }}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-2">
+            <label class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                <i class="fas fa-money-bill-wave text-indigo-500 text-[10px]"></i>
+                Amount
+            </label>
+            {{ form.amount }}
+        </div>
+        <div class="space-y-2">
+            <label class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                <i class="fas fa-calendar-alt text-indigo-500 text-[10px]"></i>
+                Date Spent
+            </label>
+            {{ form.date_spent }}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-2">
+            <label class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                <i class="fas fa-wallet text-indigo-500 text-[10px]"></i>
+                Payment Method
+            </label>
+            {{ form.method }}
+        </div>
+        <div class="space-y-2">
+            <label class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                <i class="fas fa-fingerprint text-indigo-500 text-[10px]"></i>
+                Reference / Receipt
+            </label>
+            {{ form.reference }}
+        </div>
+    </div>
+
+    <div class="space-y-2">
+        <label class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+            <i class="fas fa-align-left text-indigo-500 text-[10px]"></i>
+            Description
+        </label>
+        {{ form.description }}
+    </div>
+
+    <div class="space-y-2">
+        <label class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+            <i class="fas fa-school text-indigo-500 text-[10px]"></i>
+            Branch / School
+        </label>
+        {{ form.school }}
+    </div>
+
+    <div class="flex items-center gap-3 pt-6">
+        <button type="submit" class="flex-1 h-14 bg-slate-900 border border-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl shadow-slate-200 dark:shadow-none flex items-center justify-center gap-3 group active:scale-95">
+            <span>Commit Record</span>
+            <i class="fas fa-arrow-right text-[10px] transform group-hover:translate-x-1 transition-transform"></i>
+        </button>
+        <button type="button" onclick="closeExpenseModal()" class="h-14 px-8 bg-slate-50 border border-slate-200 text-slate-500 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-slate-100 hover:text-slate-900 transition-all active:scale-95">
+            Cancel
+        </button>
+    </div>
+</form>

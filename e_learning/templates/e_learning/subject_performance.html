@@ -1,0 +1,443 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ subject.name }} Performance — E-Learning{% endblock %}
+
+{% block page_header %}
+<h1 class="text-lg md:text-xl font-black text-slate-900 tracking-tight truncate">Excel SMS</h1>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .progress-fill { transition: width 1s ease-in-out; }
+    .tab-btn.active {
+        background: white;
+        color: #4f46e5;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .metric-card:hover .metric-icon {
+        transform: scale(1.1) rotate(5deg);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-[1400px] mx-auto pb-16">
+    
+    <!-- Header -->
+    <div class="mb-10">
+        <a href="{% url 'e_learning:quiz_list' %}" class="inline-flex items-center text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-widest mb-4">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+        </a>
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div>
+                <h2 class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                    {{ subject.name }} <span class="text-slate-400 font-light">Performance</span>
+                </h2>
+                <div class="flex items-center gap-3 mt-3">
+                    <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest border border-indigo-100">
+                        {{ subject.grade }}
+                    </span>
+                    <span class="text-slate-400 text-xs font-bold uppercase tracking-widest">
+                        {{ published_quizzes }} Active Tests · {{ active_assignments }} Active Assignments
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Mean Score -->
+        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center">
+                    <i class="fas fa-chart-line text-orange-500 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-slate-800 tabular-nums">{{ combined_avg }}%</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4 uppercase tracking-widest text-[10px]">Academic Mean</p>
+            <div class="flex flex-col gap-2 pt-4 border-t border-slate-100">
+                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="progress-fill h-full bg-orange-500 rounded-full" style="width: {{ combined_avg }}%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pass Rate -->
+        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                    <i class="fas fa-award text-emerald-600 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-slate-800 tabular-nums">{{ pass_rate }}%</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4 uppercase tracking-widest text-[10px]">Success Rate</p>
+            <div class="flex flex-col gap-2 pt-4 border-t border-slate-100">
+                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="progress-fill h-full bg-emerald-500 rounded-full" style="width: {{ pass_rate }}%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Students -->
+        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                    <i class="fas fa-users text-blue-600 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-slate-800 tabular-nums">{{ unique_students }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4 uppercase tracking-widest text-[10px]">Active Learners</p>
+            <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+                <div class="text-[12px] text-blue-500 font-semibold flex items-center gap-1.5">
+                    <i class="fas fa-user-graduate text-[10px]"></i>
+                    <span>Enrolled</span>
+                </div>
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Participating</span>
+            </div>
+        </div>
+
+        <!-- Total Submissions -->
+        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center">
+                    <i class="fas fa-paper-plane text-indigo-600 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-slate-800 tabular-nums">{{ total_all_attempts }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4 uppercase tracking-widest text-[10px]">Total Submissions</p>
+            <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">{{ total_quiz_attempts }} TESTS</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">{{ total_assignment_attempts }} ASSIGNMENTS</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+        <!-- Growth Trend -->
+        <div class="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h3 class="text-lg font-black text-slate-900 tracking-tight">Performance Trend</h3>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Average scores over the last 8 weeks</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-400">
+                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span> Tests
+                    </div>
+                    <div class="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-400">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Assignments
+                    </div>
+                </div>
+            </div>
+            <div class="h-[300px]">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Grade Distribution -->
+        <div class="lg:col-span-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <h3 class="text-lg font-black text-slate-900 tracking-tight mb-8">Grade Mastery</h3>
+            <div class="relative w-full h-[200px] flex items-center justify-center mb-8">
+                <canvas id="gradeChart"></canvas>
+            </div>
+            <div class="space-y-3">
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                        <span class="text-xs font-bold text-slate-700 uppercase tracking-widest">A (Exceeding)</span>
+                    </div>
+                    <span class="text-sm font-black text-slate-900">{{ grade_a }}</span>
+                </div>
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                        <span class="text-xs font-bold text-slate-700 uppercase tracking-widest">B (Meeting)</span>
+                    </div>
+                    <span class="text-sm font-black text-slate-900">{{ grade_b }}</span>
+                </div>
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                        <span class="text-xs font-bold text-slate-700 uppercase tracking-widest">C (Approaching)</span>
+                    </div>
+                    <span class="text-sm font-black text-slate-900">{{ grade_c }}</span>
+                </div>
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+                        <span class="text-xs font-bold text-slate-700 uppercase tracking-widest">D (Below)</span>
+                    </div>
+                    <span class="text-sm font-black text-slate-900">{{ grade_d }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Tabs -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="bg-slate-50 p-2 flex border-b border-slate-200">
+            <button onclick="switchTab('tests')" id="testsTab" class="tab-btn active flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all">
+                Tests Breakdown ({{ total_quizzes }})
+            </button>
+            <button onclick="switchTab('assignments')" id="assignmentsTab" class="tab-btn flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all">
+                Assignments Breakdown ({{ total_assignments }})
+            </button>
+            <button onclick="switchTab('recent')" id="recentTab" class="tab-btn flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all">
+                Recent Submissions
+            </button>
+        </div>
+
+        <!-- Tests Tab Content -->
+        <div id="testsContent" class="tab-content block">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-100">
+                            <th class="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Test Title</th>
+                            <th class="text-center px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Avg Score</th>
+                            <th class="text-center px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Pass Rate</th>
+                            <th class="text-center px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Range</th>
+                            <th class="text-center px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Attempts</th>
+                            <th class="text-right px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for b in quiz_breakdown %}
+                        <tr class="hover:bg-slate-50/50 transition-all">
+                            <td class="px-6 py-4">
+                                <div class="font-bold text-slate-900">{{ b.quiz.title }}</div>
+                                <div class="text-[10px] font-medium text-slate-400 uppercase tracking-widest">By {{ b.quiz.created_by.get_full_name }}</div>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="text-sm font-black {% if b.avg_score >= 70 %}text-emerald-600{% elif b.avg_score >= 50 %}text-amber-600{% else %}text-rose-600{% endif %}">
+                                    {{ b.avg_score }}%
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <div class="text-xs font-bold text-slate-700">{{ b.pass_rate }}%</div>
+                                <div class="w-16 h-1 bg-slate-100 rounded-full mx-auto mt-1 overflow-hidden">
+                                    <div class="h-full bg-emerald-500" style="width: {{ b.pass_rate }}%"></div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">High: {{ b.highest }}%</div>
+                                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Low: {{ b.lowest }}%</div>
+                            </td>
+                            <td class="px-6 py-4 text-center font-bold text-slate-700">{{ b.attempt_count }}</td>
+                            <td class="px-6 py-4 text-right">
+                                <a href="{% url 'e_learning:quiz_results' b.quiz.id %}" class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800">
+                                    Full Results <i class="fas fa-chevron-right text-[8px]"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">No tests found for this subject</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Assignments Tab Content -->
+        <div id="assignmentsContent" class="tab-content hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-100">
+                            <th class="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Assignment</th>
+                            <th class="text-center px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Avg Score</th>
+                            <th class="text-center px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Pass Rate</th>
+                            <th class="text-center px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Range</th>
+                            <th class="text-center px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Attempts</th>
+                            <th class="text-right px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for b in assignment_breakdown %}
+                        <tr class="hover:bg-slate-50/50 transition-all">
+                            <td class="px-6 py-4">
+                                <div class="font-bold text-slate-900">{{ b.assignment.title }}</div>
+                                <div class="text-[10px] font-medium text-slate-400 uppercase tracking-widest">By {{ b.assignment.created_by.get_full_name }}</div>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="text-sm font-black {% if b.avg_score >= 70 %}text-emerald-600{% elif b.avg_score >= 50 %}text-amber-600{% else %}text-rose-600{% endif %}">
+                                    {{ b.avg_score }}%
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <div class="text-xs font-bold text-slate-700">{{ b.pass_rate }}%</div>
+                                <div class="w-16 h-1 bg-slate-100 rounded-full mx-auto mt-1 overflow-hidden">
+                                    <div class="h-full bg-emerald-500" style="width: {{ b.pass_rate }}%"></div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">High: {{ b.highest }}%</div>
+                                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Low: {{ b.lowest }}%</div>
+                            </td>
+                            <td class="px-6 py-4 text-center font-bold text-slate-700">{{ b.attempt_count }}</td>
+                            <td class="px-6 py-4 text-right">
+                                <a href="{% url 'e_learning:assignment_manage' b.assignment.id %}" class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800">
+                                    Manage <i class="fas fa-chevron-right text-[8px]"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">No assignments found for this subject</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Tab Content -->
+        <div id="recentContent" class="tab-content hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-100">
+                            <th class="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Student</th>
+                            <th class="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Activity</th>
+                            <th class="text-center px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Score</th>
+                            <th class="text-center px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                            <th class="text-right px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Time</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for a in recent_submissions %}
+                        <tr class="hover:bg-slate-50 transition-all">
+                            <td class="px-6 py-4">
+                                <div class="font-bold text-slate-900">{{ a.student.get_full_name }}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter border {% if a.attempt_type == 'quiz' %}bg-indigo-50 text-indigo-600 border-indigo-100{% else %}bg-amber-50 text-amber-600 border-amber-100{% endif %}">
+                                        {{ a.attempt_type }}
+                                    </span>
+                                    <span class="font-medium text-slate-700 truncate max-w-[200px]">{{ a.title }}</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="font-black text-slate-900">{{ a.percentage|floatformat:1 }}%</span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                {% if a.passed %}
+                                <span class="text-[9px] font-black uppercase bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded border border-emerald-100">Pass</span>
+                                {% else %}
+                                <span class="text-[9px] font-black uppercase bg-rose-50 text-rose-600 px-2 py-0.5 rounded border border-rose-100">Fail</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-right text-xs font-medium text-slate-400">
+                                {{ a.submitted_at|timesince }} ago
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Performers List -->
+    <div class="mt-8">
+        <h3 class="text-lg font-black text-slate-900 tracking-tight mb-6">Subject Champions</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {% for p in top_performers %}
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center font-black text-indigo-600 text-lg">
+                    {{ p.student__first_name|slice:":1" }}{{ p.student__last_name|slice:":1" }}
+                </div>
+                <div>
+                    <div class="text-sm font-black text-slate-900">{{ p.student__first_name }} {{ p.student__last_name }}</div>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span class="text-[10px] font-bold text-indigo-600">{{ p.combined_avg }}% AVG</span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ p.total_attempts }} TASKS</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.replace('block', 'hidden'));
+        
+        document.getElementById(tab + 'Tab').classList.add('active');
+        document.getElementById(tab + 'Content').classList.replace('hidden', 'block');
+    }
+
+    // Trend Chart
+    const ctxTrend = document.getElementById('trendChart').getContext('2d');
+    new Chart(ctxTrend, {
+        type: 'line',
+        data: {
+            labels: {{ trend_labels_json|safe }},
+            datasets: [
+                {
+                    label: 'Tests Avg',
+                    data: {{ trend_quiz_avg_json|safe }},
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.05)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#fff',
+                    pointBorderWidth: 2,
+                    borderWidth: 3
+                },
+                {
+                    label: 'Assignments Avg',
+                    data: {{ trend_assign_avg_json|safe }},
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'transparent',
+                    tension: 0.4,
+                    fill: false,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#fff',
+                    pointBorderWidth: 2,
+                    borderWidth: 3,
+                    borderDash: [5, 5]
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, max: 100, grid: { display: false } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Grade Distribution Donut
+    const ctxGrade = document.getElementById('gradeChart').getContext('2d');
+    new Chart(ctxGrade, {
+        type: 'doughnut',
+        data: {
+            labels: ['A', 'B', 'C', 'D'],
+            datasets: [{
+                data: [{{ grade_a }}, {{ grade_b }}, {{ grade_c }}, {{ grade_d }}],
+                backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            cutout: '80%',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+        }
+    });
+</script>
+{% endblock %}

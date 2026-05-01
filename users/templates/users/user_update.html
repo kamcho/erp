@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+
+{% block title %}Account Settings | {{ user_profile.get_full_name }}{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col">
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Account Settings</h1>
+    <div class="flex items-center gap-2 mt-1">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Profile Configuration</span>
+        <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+        <span class="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{{ user_profile.email }}</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-6">
+    <form method="post" enctype="multipart/form-data" class="space-y-8 pb-20">
+        {% csrf_token %}
+
+        <!-- Profile Photo Section -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+            <div class="flex flex-col md:flex-row items-center gap-8">
+                <div class="relative group">
+                    <div class="w-24 h-24 rounded-2xl bg-slate-100 dark:bg-slate-800 overflow-hidden border border-slate-200 dark:border-slate-700 transition-all {% if not form.profile_image.disabled %}group-hover:border-indigo-500{% endif %}">
+                        {% if user_profile.profile_image %}
+                            <img src="{{ user_profile.profile_image.url }}" id="profilePreview" class="w-full h-full object-cover">
+                        {% else %}
+                            <div class="w-full h-full flex items-center justify-center text-slate-300 dark:text-slate-600 text-3xl" id="profilePlaceholder">
+                                <i class="fas fa-user"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% if not form.profile_image.disabled %}
+                    <label for="{{ form.profile_image.id_for_label }}" class="absolute -bottom-2 -right-2 w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center cursor-pointer hover:bg-indigo-700 transition-colors shadow-lg border-2 border-white dark:border-slate-900">
+                        <i class="fas fa-camera text-xs"></i>
+                    </label>
+                    <div class="hidden">{{ form.profile_image }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="flex-grow text-center md:text-left">
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Profile Photo</h3>
+                    <p class="text-xs text-slate-500 mt-1 font-medium">
+                        {% if form.profile_image.disabled %}
+                        Photo can only be changed by an administrator.
+                        {% else %}
+                        Update your profile picture for better identification across the portal.
+                        {% endif %}
+                    </p>
+                    {% if not form.profile_image.disabled %}
+                    <div class="flex items-center justify-center md:justify-start gap-4 mt-4">
+                        <label for="{{ form.profile_image.id_for_label }}" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-5 py-2 rounded-xl cursor-pointer hover:bg-indigo-100 transition-all border border-indigo-100 dark:border-indigo-900/50">
+                            Change Photo
+                        </label>
+                        {% if user_profile.profile_image %}
+                        <button type="button" class="text-[11px] font-bold text-rose-600 hover:text-rose-700 transition-colors">Remove</button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Personal Information Card -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div class="px-8 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <i class="fas fa-id-card text-indigo-500"></i>
+                    Personal Information
+                </h3>
+            </div>
+            
+            <div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <!-- Email -->
+                <div class="md:col-span-2 space-y-2">
+                    <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">E-mail Address</label>
+                    <div class="relative group">
+                        <i class="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors text-xs"></i>
+                        {{ form.email }}
+                    </div>
+                    {% if form.email.errors %}<p class="text-[10px] font-bold text-rose-500 ml-1">{{ form.email.errors.0 }}</p>{% endif %}
+                    {% if form.email.help_text %}<p class="text-[9px] text-slate-400 ml-1 italic">{{ form.email.help_text }}</p>{% endif %}
+                </div>
+
+                <!-- First Name -->
+                <div class="space-y-2">
+                    <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">First Name</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.help_text %}<p class="text-[9px] text-slate-400 ml-1 italic">{{ form.first_name.help_text }}</p>{% endif %}
+                </div>
+
+                <!-- Last Name -->
+                <div class="space-y-2">
+                    <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">Last Name</label>
+                    {{ form.last_name }}
+                    {% if form.last_name.help_text %}<p class="text-[9px] text-slate-400 ml-1 italic">{{ form.last_name.help_text }}</p>{% endif %}
+                </div>
+
+                <!-- Phone -->
+                <div class="space-y-2">
+                    <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">Phone Number</label>
+                    {{ form.phone_number }}
+                    {% if form.phone_number.help_text %}<p class="text-[9px] text-slate-400 ml-1 italic">{{ form.phone_number.help_text }}</p>{% endif %}
+                </div>
+
+                <!-- Password -->
+                <div class="space-y-2">
+                    <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">Change Password</label>
+                    <div class="relative group">
+                        <i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors text-xs"></i>
+                        {{ form.password }}
+                    </div>
+                    <p class="text-[10px] font-medium text-slate-400 italic mt-1 ml-1">Leave blank to keep your current password</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Actions -->
+        <div class="flex flex-col md:flex-row items-center justify-between gap-6 pt-4">
+            <div class="flex items-center gap-3 text-slate-400 order-2 md:order-1">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                    <i class="fas fa-info-circle text-xs"></i>
+                </div>
+                <span class="text-[10px] font-bold uppercase tracking-widest max-w-[200px] leading-relaxed">Identity verification may be required for some changes.</span>
+            </div>
+            <div class="flex items-center gap-3 w-full md:w-auto order-1 md:order-2">
+                <a href="{% url 'users:user-profile' user_profile.id %}" class="flex-1 md:flex-none text-center px-8 py-3 rounded-xl text-[11px] font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-200">
+                    Cancel
+                </a>
+                <button type="submit" class="flex-1 md:flex-none px-10 py-3 bg-indigo-600 text-white rounded-xl text-[11px] font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <i class="fas fa-save"></i>
+                    Update Profile
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const emailInput = document.querySelector('input[name="email"]');
+        const passInput = document.querySelector('input[name="password"]');
+        const normalInputs = document.querySelectorAll('input:not([name="email"]):not([name="password"]):not([type="file"])');
+
+        const baseInputClass = "w-full py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all";
+        
+        if (emailInput) emailInput.className = baseInputClass + " pl-11 pr-4";
+        if (passInput) passInput.className = baseInputClass + " pl-11 pr-4";
+        normalInputs.forEach(input => input.className = baseInputClass + " px-4");
+
+        // Style disabled inputs
+        document.querySelectorAll('input:disabled').forEach(el => {
+            el.classList.add('bg-slate-100', 'dark:bg-slate-800', 'cursor-not-allowed', 'opacity-60');
+            el.classList.remove('bg-slate-50', 'dark:bg-slate-800/50');
+        });
+
+        // Image Preview Logic
+        const fileInput = document.querySelector('input[type="file"]');
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const preview = document.getElementById('profilePreview');
+                        if (preview) {
+                            preview.src = e.target.result;
+                        } else {
+                            const placeholder = document.getElementById('profilePlaceholder');
+                            if (placeholder) {
+                                placeholder.innerHTML = `<img src="${e.target.result}" id="profilePreview" class="w-full h-full object-cover">`;
+                            }
+                        }
+                    }
+                    reader.readAsDataURL(this.files[0]);
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

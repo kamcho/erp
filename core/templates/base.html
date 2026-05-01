@@ -1,0 +1,476 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Excel SMS{% endblock %}</title>
+    <!-- Google Fonts: Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        'primary-hover': '#4338ca',
+                        'sidebar-bg': '#ffffff',
+                        'sidebar-hover': '#f8fafc',
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer components {
+            .menu-item {
+                @apply flex items-center gap-4 px-4 py-3 mb-1 rounded-[10px] text-slate-700 transition-all duration-300 font-bold hover:bg-sidebar-hover hover:text-primary;
+            }
+            .menu-item.active {
+                @apply bg-primary text-white shadow-lg shadow-primary/30;
+            }
+            .glass-card {
+                @apply bg-white/80 backdrop-blur-md rounded-[10px] border border-white/30 shadow-sm p-6 dark:bg-slate-900/50 dark:border-slate-800;
+            }
+            .btn {
+                @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-[10px] font-medium transition-all duration-300 transform hover:-translate-y-px;
+            }
+            .btn-primary {
+                @apply bg-primary text-white hover:bg-primary-hover active:scale-95;
+            }
+            .custom-scrollbar::-webkit-scrollbar {
+                @apply w-1.5;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                @apply bg-transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+            }
+            
+            /* Sidebar Dropdown Styles */
+            .dropdown-toggle.active-group {
+                @apply bg-white/5 text-white;
+            }
+            .dropdown-toggle.active-group i.fa-chevron-right {
+                @apply rotate-90;
+            }
+            .dropdown-content {
+                @apply max-h-0 transition-all duration-300 ease-in-out;
+            }
+            .dropdown-content.open {
+                @apply max-h-[500px];
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-50 text-slate-900 dark:bg-[#020617] dark:text-slate-100 min-h-screen flex">
+    <!-- Sidebar -->
+    <aside class="sidebar w-64 bg-sidebar-bg text-slate-700 flex flex-col fixed h-screen z-50 transition-transform lg:translate-x-0 -translate-x-full border-r border-slate-200" id="sidebar">
+        <div class="p-8 flex items-center justify-between gap-3 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[10px] flex items-center justify-center text-white font-bold text-xl shadow-lg">E</div>
+                <span class="text-slate-900 font-black text-2xl tracking-tight">Excel SMS</span>
+            </div>
+            <button class="lg:hidden p-2 text-gray-400 hover:text-white transition-colors" onclick="toggleSidebar()">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <nav class="flex-grow mt-6 px-4 space-y-1 overflow-y-auto custom-scrollbar shadow-inner pb-20">
+            <!-- MAIN MENU -->
+            {% if user.role != 'Guardian' %}
+
+
+                <a href="{% if user.role == 'Teacher' %}{% url 'core:teacher-dashboard' %}{% elif user.role == 'Guardian' %}{% url 'core:guardian-dashboard' %}{% else %}{% url 'core:dashboard' %}{% endif %}" 
+                   class="menu-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'teacher-dashboard' or request.resolver_match.url_name == 'guardian-dashboard' %}active{% endif %}">
+                    <i class="fas fa-th-large w-5 text-lg opacity-70"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{% url 'core:schools-analytics' %}" class="menu-item {% if 'schools-analytics' in request.path %}active{% endif %}">
+                    <i class="fas fa-chart-line w-5 text-lg opacity-70"></i>
+                    <span>School Analytics</span>
+                </a>
+                {% if user.role != 'Guardian' %}
+                <a href="{% url 'core:classes-list' %}" class="menu-item {% if 'classes' in request.path %}active{% endif %}">
+                    <i class="fas fa-graduation-cap w-5 text-lg opacity-70"></i>
+                    <span>Learning</span>
+                </a>
+                {% endif %}
+
+            {% endif %}
+
+            <!-- ACADEMIC -->
+            {% if user.role != 'Guardian' %}
+
+
+                {% if user.role != 'Teacher' %}
+                <a href="{% url 'core:students-list' %}" class="menu-item {% if request.resolver_match.url_name == 'students-list' %}active{% endif %}">
+                    <i class="fas fa-user-graduate w-5 text-lg opacity-70"></i>
+                    <span>Students</span>
+                </a>
+                {% endif %}
+                {% if user.role != 'Receptionist' %}
+                <a href="{% url 'Exam:exam-list' %}" class="menu-item {% if 'exam-list' in request.path %}active{% endif %}">
+                    <i class="fas fa-file-invoice w-5 text-lg opacity-70"></i>
+                    <span>Exams List</span>
+                </a>
+                {% endif %}
+                
+
+            {% endif %}
+
+            <!-- MANAGEMENT -->
+            {% if user.role == 'Admin' or user.role == 'Receptionist' or user.role == 'Accountant' %}
+
+
+                {% if user.role == 'Admin' or user.role == 'Receptionist' %}
+                <a href="{% url 'core:system-control' %}" class="menu-item {% if request.resolver_match.url_name == 'system-control' %}active{% endif %}">
+                    <i class="fas fa-sliders-h w-5 text-lg opacity-70"></i>
+                    <span>System Control</span>
+                </a>
+                <a href="{% url 'core:operations' %}" class="menu-item {% if request.resolver_match.url_name == 'operations' %}active{% endif %}">
+                    <i class="fas fa-server w-5 text-lg opacity-70"></i>
+                    <span>Operations Hub</span>
+                </a>
+                <a href="{% url 'users:users-list' %}" class="menu-item {% if 'users/list' in request.path %}active{% endif %}">
+                    <i class="fas fa-user-friends w-5 text-lg opacity-70"></i>
+                    <span>System Users</span>
+                </a>
+                {% endif %}
+                <a href="{% url 'core:finance' %}" class="menu-item {% if request.resolver_match.url_name == 'finance' %}active{% endif %}">
+                    <i class="fas fa-wallet w-5 text-lg opacity-70"></i>
+                    <span>Financial Hub</span>
+                </a>
+               
+
+                <a href="{% url 'attendance:late-rules-list' %}" class="menu-item {% if 'late-rules' in request.path %}active{% endif %}">
+                    <i class="fas fa-clock w-5 text-lg opacity-70"></i>
+                    <span>Late Time Rules</span>
+                </a>
+
+                {% if user.role == 'Admin' %}
+                <a href="{% url 'core:reports' %}" class="menu-item {% if 'reports' in request.path %}active{% endif %}">
+                    <i class="fas fa-chart-pie w-5 text-lg opacity-70"></i>
+                    <span>System Reports</span>
+                </a>
+                <a href="{% url 'core:system-logs' %}" class="menu-item {% if 'logs' in request.path %}active{% endif %}">
+                    <i class="fas fa-history w-5 text-lg opacity-70"></i>
+                    <span>Activity Logs</span>
+                </a>
+                {% endif %}
+
+            {% endif %}
+
+            <!-- PORTAL DASHBOARD -->
+            {% if user.role != 'Guardian' %}
+
+
+                {% if user.role == 'Admin' or user.role == 'Teacher' %}
+                <a href="{% url 'e_learning:quiz_list' %}" class="menu-item {% if 'e-learning/quizzes' in request.path %}active{% endif %}">
+                    <i class="fas fa-laptop-code w-5 text-lg opacity-70"></i>
+                    <span>Quiz Manager</span>
+                </a>
+                {% endif %}
+                {% if user.role != 'Receptionist' and user.role != 'Teacher' %}
+                <a href="{% url 'e_learning:student_quiz_list' %}" class="menu-item {% if 'e-learning/my-quizzes' in request.path %}active{% endif %}">
+                    <i class="fas fa-user-graduate w-5 text-lg opacity-70"></i>
+                    <span>Guardian Hub</span>
+                </a>
+                {% endif %}
+
+            {% endif %}
+
+            <!-- PERSONAL DASHBOARD -->
+            {% if user.students.exists or user.role == 'Guardian' %}
+
+
+                <a href="{% url 'core:guardian-dashboard' %}" class="menu-item {% if request.resolver_match.url_name == 'guardian-dashboard' %}active{% endif %}">
+                    <i class="fas fa-user-shield w-5 text-lg opacity-70"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{% url 'e_learning:student_quiz_list' %}" class="menu-item {% if 'e-learning/my-quizzes' in request.path %}active{% endif %}">
+                    <i class="fas fa-laptop-code w-5 text-lg opacity-70"></i>
+                    <span>E-Learning</span>
+                </a>
+
+
+                    {% for student in user.students.all %}
+                    <a href="{% url 'core:student-detail' student.id %}" 
+                       class="menu-item">
+                        <i class="fas fa-user w-5 text-lg opacity-70"></i>
+                        <span class="truncate">{{ student.get_full_name }}</span>
+                    </a>
+                    {% endfor %}
+
+
+            {% endif %}
+        </nav>
+
+        <div class="px-6 py-6 mt-auto border-t border-slate-100 no-print">
+            <form action="{% url 'users:logout' %}" method="post" class="m-0 p-0">
+                {% csrf_token %}
+                <button type="submit" class="w-full flex items-center gap-4 px-4 py-3 rounded-[10px] text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all duration-300 font-bold text-sm group">
+                    <i class="fas fa-sign-out-alt w-5 text-lg opacity-70 group-hover:scale-110 group-hover:rotate-12 transition-transform"></i>
+                    <span>Sign Out</span>
+                </button>
+            </form>
+        </div>
+    </aside>
+    
+    <!-- Sidebar Overlay -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 hidden lg:hidden transition-opacity duration-300" onclick="toggleSidebar()"></div>
+
+    <!-- Main Content -->
+    <main class="flex-grow min-w-0 lg:ml-64 pt-0 px-5 pb-5 md:px-8 md:pb-8 transition-all">
+        <!-- Top Nav (Modern Glassmorphic) -->
+        <header class="sticky top-0 z-40 -mx-5 md:-mx-8 px-4 md:px-8 py-3 flex items-center justify-between gap-4 mb-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300">
+
+            <div class="flex items-center gap-2 md:gap-4 min-w-0">
+                <button class="lg:hidden p-2.5 bg-white dark:bg-slate-900 rounded-[10px] shadow-sm border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="page-title min-w-0">
+                    {% block page_header %}
+                    <h1 class="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">Excel SMS</h1>
+                    <p class="text-slate-400 dark:text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] mt-0.5 truncate hidden xs:block">{% if user.role == 'Guardian' %}Guardian Portal{% else %}Command Center Dashboard{% endif %}</p>
+                    {% endblock %}
+                </div>
+            </div>
+            <!-- Right Side: Search & User Profile -->
+            <div class="flex items-center gap-2 md:gap-4 flex-shrink-0">
+                <!-- Search Bar Placeholder -->
+                {% if user.role != 'Guardian' %}
+                <div class="hidden xl:flex items-center relative bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl group transition-all focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500">
+                    <i class="fas fa-search text-slate-400 text-xs mr-3"></i>
+                    <input type="text" id="globalSearchInput" autocomplete="off" placeholder="Quick Search..." class="bg-transparent border-0 outline-none text-xs font-bold text-slate-600 dark:text-slate-300 w-48 placeholder:text-slate-400">
+                    <span class="text-[9px] font-black text-slate-300 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 ml-2 uppercase tracking-tighter cursor-pointer">⌘ K</span>
+                    
+                    <!-- Results Dropdown -->
+                    <div id="searchResultsContainer" class="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden hidden z-[60] transform origin-top transition-all duration-200 scale-95 opacity-0">
+                        <div class="p-2 max-h-[400px] overflow-y-auto custom-scrollbar" id="searchResultsList"></div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Icons Group -->
+                <div class="flex items-center gap-1 md:gap-2 border-r border-slate-200 dark:border-slate-800 pr-2 md:pr-4">
+                    <button class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all relative group">
+                        <i class="fas fa-bell"></i>
+                        <span class="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 border-2 border-white dark:border-slate-900 rounded-full"></span>
+                    </button>
+                    <button class="w-9 h-9 hidden md:flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all">
+                        <i class="fas fa-question-circle"></i>
+                    </button>
+                </div>
+
+                    <div class="relative group">
+                        <button class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 p-[2.5px] transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-indigo-100 dark:shadow-none">
+                            <div class="w-full h-full bg-white dark:bg-slate-900 rounded-[9px] flex items-center justify-center overflow-hidden">
+                                <img src="https://ui-avatars.com/api/?name={{ request.user.get_full_name|urlencode }}&background=6366f1&color=fff&bold=true" class="w-full h-full object-cover">
+                            </div>
+                        </button>
+                        
+                        <!-- Premium Profile Dropdown -->
+                        <div class="absolute right-0 mt-3 w-72 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 transform translate-y-2 group-hover:translate-y-0">
+                            {% if request.user.is_superuser %}
+                            <div class="mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <i class="fas fa-user-shield text-amber-500"></i> Role Management
+                                </h4>
+                                <div class="grid grid-cols-1 gap-1">
+                                    {% for role_code, role_label in request.user.ROLE_CHOICES %}
+                                    <form action="{% url 'users:quick-update-role' %}" method="post" class="m-0 p-0">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="role" value="{{ role_code }}">
+                                        <button type="submit" class="w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold transition-all {% if request.user.role == role_code %}bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400{% else %}text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800{% endif %}">
+                                            {{ role_label }}
+                                            {% if request.user.role == role_code %}<i class="fas fa-check float-right mt-1"></i>{% endif %}
+                                        </button>
+                                    </form>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <i class="fas fa-flag text-indigo-500"></i> System Flags
+                                </h4>
+                                <div class="space-y-1.5">
+                                    {% for flag, label, status in flags_info %}
+                                    <form action="{% url 'users:quick-update-role' %}" method="post" class="m-0 p-0">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="flag" value="{{ flag }}">
+                                        <button type="submit" class="w-full flex items-center justify-between px-3 py-1.5 rounded-xl border transition-all {% if status %}border-indigo-100 bg-indigo-50/30 text-indigo-600{% else %}border-slate-100 text-slate-400 hover:border-slate-200{% endif %}">
+                                            <span class="text-[10px] font-bold">{{ label }}</span>
+                                            <div class="w-6 h-3 rounded-full relative transition-all {% if status %}bg-indigo-500{% else %}bg-slate-200{% endif %}">
+                                                <div class="absolute top-0.5 left-0.5 w-2 h-2 rounded-full bg-white transition-all transform {% if status %}translate-x-3{% endif %}"></div>
+                                            </div>
+                                        </button>
+                                    </form>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
+                                <a href="{% url 'users:user-profile' request.user.id %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
+                                    <i class="fas fa-user-circle opacity-50"></i> View My Profile
+                                </a>
+                                <form action="{% url 'users:logout' %}" method="post" class="m-0 p-0 mt-1">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all">
+                                        <i class="fas fa-sign-out-alt opacity-50"></i> Sign Out System
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                   
+                </div>
+            </div>
+        </header>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="space-y-4 mb-10">
+            {% for message in messages %}
+                <div class="glass-card border-l-4 border-indigo-500 py-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-4">
+                    <i class="fas fa-info-circle text-indigo-500 text-xl"></i>
+                    <p class="font-semibold text-slate-700">{{ message }}</p>
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Content Block -->
+        <div class="animate-in fade-in duration-700">
+            {% block content %}
+            {% endblock %}
+        </div>
+    </main>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Dropdown Toggles Logic
+            const toggles = document.querySelectorAll('.dropdown-toggle');
+            toggles.forEach(toggle => {
+                const group = toggle.closest('.dropdown-group');
+                const content = group.querySelector('.dropdown-content');
+                const hasActiveChild = content.querySelector('.active');
+                if (hasActiveChild) {
+                    content.classList.add('open');
+                    toggle.classList.add('active-group');
+                }
+                toggle.addEventListener('click', () => {
+                    const isOpen = content.classList.contains('open');
+                    document.querySelectorAll('.dropdown-content').forEach(c => {
+                        c.classList.remove('open');
+                        c.previousElementSibling.classList.remove('active-group');
+                    });
+                    if (!isOpen) {
+                        content.classList.add('open');
+                        toggle.classList.add('active-group');
+                    }
+                });
+            });
+
+            // Global Search Logic
+            const searchInput = document.getElementById('globalSearchInput');
+            const searchContainer = document.getElementById('searchResultsContainer');
+            const searchList = document.getElementById('searchResultsList');
+            let debounceTimer;
+
+            searchInput.addEventListener('input', function() {
+                clearTimeout(debounceTimer);
+                const query = this.value.trim();
+
+                if (query.length < 2) {
+                    hideResults();
+                    return;
+                }
+
+                debounceTimer = setTimeout(() => {
+                    fetch(`{% url 'core:student-search-api' %}?q=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            renderResults(data.results);
+                        });
+                }, 300);
+            });
+
+            function renderResults(results) {
+                if (results.length === 0) {
+                    searchList.innerHTML = '<div class="p-4 text-center text-xs font-bold text-slate-400 italic">No students found</div>';
+                } else {
+                    searchList.innerHTML = results.map(s => `
+                        <a href="${s.url}" class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
+                            <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-[10px] group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                ${s.name.charAt(0)}
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-xs font-black text-slate-800 dark:text-slate-200 truncate">${s.name}</p>
+                                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">ADM: ${s.adm_no} • ${s.class}</p>
+                            </div>
+                        </a>
+                    `).join('');
+                }
+                showResults();
+            }
+
+            function showResults() {
+                searchContainer.classList.remove('hidden');
+                setTimeout(() => {
+                    searchContainer.classList.add('scale-100', 'opacity-100');
+                    searchContainer.classList.remove('scale-95', 'opacity-0');
+                }, 10);
+            }
+
+            function hideResults() {
+                searchContainer.classList.add('scale-95', 'opacity-0');
+                searchContainer.classList.remove('scale-100', 'opacity-100');
+                setTimeout(() => {
+                    searchContainer.classList.add('hidden');
+                }, 200);
+            }
+
+            // Close search on click outside
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !searchContainer.contains(e.target)) {
+                    hideResults();
+                }
+            });
+
+            // Keyboard shortcut (⌘ K / Ctrl K)
+            document.addEventListener('keydown', function(e) {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                    e.preventDefault();
+                    searchInput.focus();
+                }
+            });
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

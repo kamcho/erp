@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Excel SMS{% endblock %}
+
+{% block page_header %}
+<h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{{ title }}</h1>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mt-0.5">{{ subtitle }}</p>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    
+    <!-- Configurations Card -->
+    {% if user.role == 'Admin' or user.role == 'Receptionist' or user.is_superuser %}
+    <a href="{% url 'core:configurations' %}" class="group bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm border border-indigo-100 dark:border-indigo-800/50">
+                <i class="fas fa-sliders-h text-sm"></i>
+            </div>
+            <h3 class="text-[17px] font-extrabold text-slate-800 dark:text-white tracking-tight">Configurations</h3>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">Manage global system settings, academic calendar, grades, and fee structures.</p>
+        <div class="text-[12px] text-indigo-500 font-bold flex items-center gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <span>Manage Settings</span>
+            <i class="fas fa-arrow-right text-[10px] transform group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+    {% endif %}
+
+    <!-- Schools Analytics Card -->
+    <a href="{% url 'core:schools-analytics' %}" class="group bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-sm border border-emerald-100 dark:border-emerald-800/50">
+                <i class="fas fa-chart-line text-sm"></i>
+            </div>
+            <h3 class="text-[17px] font-extrabold text-slate-800 dark:text-white tracking-tight">Schools Analytics</h3>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">Cross-school performance metrics, student demographics, and growth trends.</p>
+        <div class="text-[12px] text-emerald-500 font-bold flex items-center gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <span>View Analytics</span>
+            <i class="fas fa-arrow-right text-[10px] transform group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+
+    <!-- Create User Card -->
+    {% if user.role == 'Admin' or user.role == 'Receptionist' or user.is_superuser %}
+    <a href="{% url 'users:create-user' %}" class="group bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:bg-amber-600 group-hover:text-white transition-all shadow-sm border border-amber-100 dark:border-amber-800/50">
+                <i class="fas fa-user-plus text-sm"></i>
+            </div>
+            <h3 class="text-[17px] font-extrabold text-slate-800 dark:text-white tracking-tight">Create User</h3>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">Provision new accounts for Teachers, Guardians, and Administrative staff.</p>
+        <div class="text-[12px] text-amber-500 font-bold flex items-center gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <span>Add Account</span>
+            <i class="fas fa-arrow-right text-[10px] transform group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+    {% endif %}
+
+</div>
+{% endblock %}

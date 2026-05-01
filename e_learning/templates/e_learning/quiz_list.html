@@ -1,0 +1,742 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Quiz Analytics Dashboard — E-Learning{% endblock %}
+
+{% block page_header %}
+<h1 class="text-lg md:text-xl font-black text-slate-900 tracking-tight truncate">Excel SMS</h1>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metric-value {
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Animated Progress Bars ────────────── */
+    .progress-fill {
+        transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── Table Styling ────────────────────── */
+    .data-table tr {
+        transition: background 0.15s ease;
+    }
+    .data-table tbody tr:hover {
+        background: rgba(99, 102, 241, 0.04);
+    }
+
+    /* ── Sparkline shimmer ────────────────── */
+    @keyframes shimmer {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
+    .live-dot {
+        animation: shimmer 2s ease-in-out infinite;
+    }
+
+    /* ── Donut center text ────────────────── */
+    /* ── Filter pill active state ──────────── */
+    .quiz-filter-btn {
+        color: #64748b;
+    }
+    .quiz-filter-btn:hover {
+        background: rgba(99, 102, 241, 0.06);
+        color: #4f46e5;
+    }
+    .quiz-filter-btn.active-filter {
+        background: white;
+        color: #1e293b;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .donut-center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -45%);
+        text-align: center;
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-[1400px] mx-auto pb-16">
+
+    <!-- ═══════════════════════════════════════════
+         SECTION 1: Header Actions
+         ═══════════════════════════════════════════ -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
+        <div>
+            <h2 class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                Dashboard Overview
+            </h2>
+            <div class="h-1.5 w-12 bg-indigo-600 rounded-full mt-2 mb-1"></div>
+            <p class="text-slate-500 text-[11px] font-bold uppercase tracking-widest">
+                Analytics for <span class="text-indigo-600">{{ request.user.get_full_name|default:request.user.email }}</span>
+            </p>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <a href="{% url 'e_learning:quiz_create' %}" class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 hover:-translate-y-0.5 active:scale-95 transition-all">
+                <i class="fas fa-plus"></i> Create Test
+            </a>
+            <a href="{% url 'e_learning:assignment_create' %}" class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-white text-slate-700 font-black text-xs uppercase tracking-widest border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all">
+                <i class="fas fa-paper-plane text-indigo-500"></i> Create Assignment
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Total Quizzes -->
+        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center">
+                    <i class="fas fa-layer-group text-indigo-600 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-slate-800 tabular-nums">{{ total_quizzes }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4 uppercase tracking-widest text-[10px]">Total Quizzes</p>
+            <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-100">{{ published_quizzes }} LIVE</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">{{ draft_quizzes }} DRAFT</span>
+            </div>
+        </div>
+
+        <!-- Total Submissions -->
+        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                    <i class="fas fa-paper-plane text-blue-600 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-slate-800 tabular-nums">{{ total_attempts }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4 uppercase tracking-widest text-[10px]">Total Submissions</p>
+            <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+                <div class="text-[12px] text-blue-500 font-semibold flex items-center gap-1.5">
+                    <i class="fas fa-history text-[10px]"></i>
+                    <span>All Time</span>
+                </div>
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Completed</span>
+            </div>
+        </div>
+
+        <!-- Average Score -->
+        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center">
+                    <i class="fas fa-chart-line text-orange-500 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-slate-800 tabular-nums">{{ overall_avg|floatformat:1 }}%</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4 uppercase tracking-widest text-[10px]">Academic Mean</p>
+            <div class="flex flex-col gap-2 pt-4 border-t border-slate-100">
+                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="progress-fill h-full bg-orange-500 rounded-full" style="width: 0%;" data-width="{{ overall_avg }}"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pass Rate -->
+        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                    <i class="fas fa-award text-emerald-600 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-slate-800 tabular-nums">{{ pass_rate|floatformat:1 }}%</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4 uppercase tracking-widest text-[10px]">Success Rate</p>
+            <div class="flex flex-col gap-2 pt-4 border-t border-slate-100">
+                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="progress-fill h-full bg-emerald-500 rounded-full" style="width: 0%;" data-width="{{ pass_rate }}"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════
+         SECTION 2: Charts Row (Trend Line + Grade Donut)
+         ═══════════════════════════════════════════ -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+
+        <!-- Submission Trend Line Chart -->
+        <div class="lg:col-span-8 bg-white rounded-2xl p-6 relative overflow-hidden shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between mb-6 relative z-10">
+                <div>
+                    <h3 class="text-base font-black text-slate-900">Submission Trends</h3>
+                    <p class="text-xs text-slate-500 font-medium mt-0.5">Daily submissions & average scores — last 4 weeks</p>
+                </div>
+                <div class="flex items-center gap-4 text-[10px] font-bold text-slate-400">
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"></span> Submissions</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Avg Score</span>
+                </div>
+            </div>
+            <div class="h-[260px] relative z-10">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Grade Distribution Donut -->
+        <div class="lg:col-span-4 bg-white rounded-2xl p-6 relative overflow-hidden shadow-sm border border-slate-200">
+            <div class="mb-6 relative z-10">
+                <h3 class="text-base font-black text-slate-900">Grade Distribution</h3>
+                <p class="text-xs text-slate-500 font-medium mt-0.5">Performance breakdown across all attempts</p>
+            </div>
+            <div class="relative mx-auto z-10" style="width: 180px; height: 180px;">
+                <canvas id="gradeDonut"></canvas>
+                <div class="donut-center">
+                    <p class="text-2xl font-black text-slate-900">{{ total_attempts }}</p>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3 mt-6 relative z-10">
+                <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                    <span class="text-[11px] font-bold text-slate-700">A (80%+): {{ grade_a }}</span>
+                </div>
+                <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
+                    <span class="text-[11px] font-bold text-slate-700">B (60-79%): {{ grade_b }}</span>
+                </div>
+                <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                    <span class="text-[11px] font-bold text-slate-700">C (40-59%): {{ grade_c }}</span>
+                </div>
+                <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+                    <span class="text-[11px] font-bold text-slate-700">D (<40%): {{ grade_d }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════
+         SECTION 3: Subject Performance Table + Top Performers
+         ═══════════════════════════════════════════ -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+
+        <!-- Subject Performance Table -->
+        <div class="lg:col-span-8 bg-white rounded-2xl border border-slate-200 overflow-hidden relative shadow-sm">
+            <div class="p-6 pb-4 relative z-10 border-b border-slate-100 bg-slate-50">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-black text-slate-900">Subject Performance</h3>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Comparative analytics across departments</p>
+                    </div>
+                    <span class="px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase tracking-widest border border-indigo-100">Live Data</span>
+                </div>
+            </div>
+            <div class="overflow-x-auto relative z-10">
+                <table class="data-table w-full text-sm">
+                    <thead>
+                        <tr class="bg-slate-50">
+                            <th class="hidden md:table-cell text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">#</th>
+                            <th class="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Subject</th>
+                            <th class="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Avg Score</th>
+                            <th class="hidden md:table-cell text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Performance</th>
+                            <th class="hidden md:table-cell text-right px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Attempts</th>
+                            <th class="hidden md:table-cell text-right px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Quizzes</th>
+                            <th class="md:hidden text-right px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Attempts/Tests</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for stat in subject_stats %}
+                        <tr class="hover:bg-slate-50 transition-all">
+                            <td class="hidden md:table-cell px-6 py-4 text-xs font-black text-slate-400">{{ forloop.counter }}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                                        <i class="fas fa-book text-[10px]"></i>
+                                    </div>
+                                    <a href="{% url 'e_learning:subject_performance' stat.subject__id %}" class="font-bold text-slate-700 text-sm truncate max-w-[100px] md:max-w-none hover:text-indigo-600 transition-colors">
+                                        {{ stat.subject__name }}
+                                    </a>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="font-black text-sm {% if stat.avg_score >= 70 %}text-emerald-600{% elif stat.avg_score >= 50 %}text-amber-600{% else %}text-rose-600{% endif %}">
+                                    {{ stat.avg_score|floatformat:1 }}%
+                                </span>
+                            </td>
+                            <td class="hidden md:table-cell px-6 py-4">
+                                <div class="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div class="progress-fill h-full rounded-full {% if stat.avg_score >= 70 %}bg-emerald-500{% elif stat.avg_score >= 50 %}bg-amber-500{% else %}bg-rose-500{% endif %}" style="width: 0%;" data-width="{{ stat.avg_score }}"></div>
+                                </div>
+                            </td>
+                            <td class="hidden md:table-cell px-6 py-4 text-right font-bold text-slate-500 tabular-nums">{{ stat.attempt_count }}</td>
+                            <td class="hidden md:table-cell px-6 py-4 text-right font-bold text-slate-500 tabular-nums">{{ stat.quiz_count }}</td>
+                            <td class="md:hidden px-6 py-4 text-right">
+                                <div class="text-xs font-bold text-slate-600">{{ stat.attempt_count }} att</div>
+                                <div class="text-[10px] font-medium text-slate-500">{{ stat.quiz_count }} test{{ stat.quiz_count|pluralize }}</div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="px-6 py-10 text-center text-slate-500 text-sm font-medium">No published quiz data available yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 bg-slate-50 border-t border-slate-100">
+                <div class="flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    <span>Aggregate Department Score</span>
+                    <span class="text-indigo-600">{{ overall_avg|floatformat:1 }}% Target Achieved</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Performers -->
+        <div class="lg:col-span-4 bg-white rounded-2xl p-6 border border-slate-200 relative overflow-hidden shadow-sm">
+            <div class="flex items-center justify-between mb-6 relative z-10">
+                <div>
+                    <h3 class="text-base font-black text-slate-900">Top Performers</h3>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Top ranking by average score</p>
+                </div>
+                <span class="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 live-dot inline-block"></span> Live
+                </span>
+            </div>
+            <div class="space-y-3 relative z-10">
+                {% for perf in top_performers %}
+                <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all group">
+                    <div class="w-9 h-9 rounded-lg flex items-center justify-center font-black text-sm
+                        {% if forloop.counter == 1 %}bg-amber-100 text-amber-600
+                        {% elif forloop.counter == 2 %}bg-slate-200 text-slate-600
+                        {% elif forloop.counter == 3 %}bg-orange-100 text-orange-600
+                        {% else %}bg-indigo-50 text-indigo-600{% endif %}
+                    ">
+                        {% if forloop.counter <= 3 %}
+                        <i class="fas fa-trophy text-[10px]"></i>
+                        {% else %}
+                        {{ forloop.counter }}
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <p class="text-sm font-bold text-slate-900 truncate">{{ perf.student__first_name }} {{ perf.student__last_name }}</p>
+                        <p class="text-[10px] text-slate-500 font-medium">{{ perf.attempts_count }} attempt{{ perf.attempts_count|pluralize }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-black {% if perf.avg_pct >= 80 %}text-emerald-600{% elif perf.avg_pct >= 60 %}text-blue-600{% else %}text-amber-600{% endif %}">{{ perf.avg_pct|floatformat:1 }}%</p>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="py-10 text-center">
+                    <i class="fas fa-users-slash text-slate-300 text-2xl mb-2"></i>
+                    <p class="text-xs text-slate-500 font-bold uppercase tracking-widest">No attempts yet</p>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="mt-6 pt-4 border-t border-slate-100 text-center">
+                <button class="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors">View All Rankings <i class="fas fa-chevron-right ml-1"></i></button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════
+         SECTION 4: Recent Attempts Feed
+         ═══════════════════════════════════════════ -->
+    <div id="submissions" class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8 shadow-sm">
+        <div class="p-6 pb-0">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-base font-black text-slate-900">Recent Submissions</h3>
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Latest activity</span>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="data-table w-full text-sm">
+                <thead>
+                    <tr class="border-b border-slate-100">
+                        <th class="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Student/Quiz</th>
+                        <th class="hidden md:table-cell text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Subject</th>
+                        <th class="text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Score</th>
+                        <th class="hidden md:table-cell text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Result</th>
+                        <th class="hidden md:table-cell text-right px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Submitted</th>
+                        <th class="text-right px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for attempt in recent_attempts %}
+                    <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                                    {{ attempt.student.first_name|slice:":1" }}
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="font-bold text-slate-800 text-sm truncate">{{ attempt.student.get_full_name }}</p>
+                                    <p class="text-[10px] text-slate-400 font-medium truncate md:hidden">{{ attempt.quiz.title }}</p>
+                                    <p class="text-[10px] text-slate-400 font-medium hidden md:block">{{ attempt.quiz.title|truncatechars:30 }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="hidden md:table-cell px-6 py-4">
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">{{ attempt.quiz.subject.name }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex flex-col items-center">
+                                <span class="font-black text-sm {% if attempt.percentage >= 80 %}text-emerald-600{% elif attempt.percentage >= 50 %}text-blue-600{% else %}text-rose-600{% endif %}">
+                                    {{ attempt.percentage|floatformat:0 }}%
+                                </span>
+                                <span class="md:hidden text-[8px] font-bold uppercase tracking-tighter {% if attempt.passed %}text-emerald-500{% else %}text-rose-500{% endif %}">
+                                    {% if attempt.passed %}Pass{% else %}Fail{% endif %}
+                                </span>
+                            </div>
+                        </td>
+                        <td class="hidden md:table-cell px-6 py-4 text-center">
+                            {% if attempt.passed %}
+                            <span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600">
+                                <i class="fas fa-check text-[8px]"></i> Pass
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-rose-50 text-rose-600">
+                                <i class="fas fa-times text-[8px]"></i> Fail
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="hidden md:table-cell px-6 py-4 text-right text-xs text-slate-400 font-medium">{{ attempt.submitted_at|timesince }} ago</td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'e_learning:attempt_detail' attempt.pk %}" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all">
+                                <i class="fas fa-arrow-right text-xs"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-10 text-center text-slate-400 text-sm">No submissions yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/30">
+            <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Page {{ recent_attempts.number }} of {{ recent_attempts.paginator.num_pages }}</span>
+            <div class="flex items-center gap-2">
+                {% if recent_attempts.has_previous %}
+                <a href="?attempt_page={{ recent_attempts.previous_page_number }}&quiz_page={{ quizzes.number }}#submissions" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:border-indigo-500 hover:text-indigo-500 transition-all">
+                    <i class="fas fa-chevron-left mr-1"></i> Prev
+                </a>
+                {% endif %}
+                {% if recent_attempts.has_next %}
+                <a href="?attempt_page={{ recent_attempts.next_page_number }}&quiz_page={{ quizzes.number }}#submissions" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:border-indigo-500 hover:text-indigo-500 transition-all">
+                    Next <i class="fas fa-chevron-right ml-1"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════
+         SECTION 5: Quiz Library (Data Table)
+         ═══════════════════════════════════════════ -->
+    <div id="library" class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6 shadow-sm">
+        <div class="p-6 pb-4">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-base font-black text-slate-900 tracking-tight">Quiz Library</h2>
+                    <p class="text-xs text-slate-500 font-medium mt-0.5">{{ total_quizzes }} assessment{{ total_quizzes|pluralize }} across all subjects</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <!-- Filter pills -->
+                    <div class="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl">
+                        <button onclick="filterQuizzes('all')" class="quiz-filter-btn active-filter px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all" data-filter="all">
+                            All <span class="ml-1 text-slate-400">{{ total_quizzes }}</span>
+                        </button>
+                        <button onclick="filterQuizzes('published')" class="quiz-filter-btn px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all" data-filter="published">
+                            Live <span class="ml-1 text-emerald-500">{{ published_quizzes }}</span>
+                        </button>
+                        <button onclick="filterQuizzes('draft')" class="quiz-filter-btn px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all" data-filter="draft">
+                            Draft <span class="ml-1 text-amber-500">{{ draft_quizzes }}</span>
+                        </button>
+                    </div>
+                    <!-- Search -->
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                        <input type="text" id="quizSearch" placeholder="Search..." class="pl-8 pr-4 py-2 bg-slate-50 border-none rounded-xl text-xs font-medium focus:ring-2 ring-indigo-500 outline-none w-44 transition-all">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="data-table w-full text-sm" id="quizTable">
+                <thead>
+                    <tr class="border-y border-slate-100 bg-slate-50/50">
+                        <th class="hidden md:table-cell text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">#</th>
+                        <th class="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Quiz Library</th>
+                        <th class="hidden md:table-cell text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Subject</th>
+                        <th class="hidden md:table-cell text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                        <th class="hidden md:table-cell text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Questions</th>
+                        <th class="hidden md:table-cell text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Marks</th>
+                        <th class="hidden md:table-cell text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            <i class="fas fa-clock mr-1"></i>Time
+                        </th>
+                        <th class="hidden md:table-cell text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Submissions</th>
+                        <th class="text-right px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for quiz in quizzes %}
+                    <tr class="quiz-row border-b border-slate-50 group" data-title="{{ quiz.title|lower }}" data-status="{{ quiz.status }}">
+                        <td class="hidden md:table-cell px-6 py-4 text-xs font-black text-slate-300">{{ forloop.counter }}</td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                                    {% if quiz.status == 'published' %}bg-indigo-50
+                                    {% elif quiz.status == 'draft' %}bg-amber-50
+                                    {% else %}bg-slate-100{% endif %}
+                                ">
+                                    <i class="fas fa-clipboard-list text-sm
+                                        {% if quiz.status == 'published' %}text-indigo-500
+                                        {% elif quiz.status == 'draft' %}text-amber-500
+                                        {% else %}text-slate-400{% endif %}
+                                    "></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="font-bold text-slate-800 text-sm truncate max-w-[220px] group-hover:text-indigo-600 transition-colors">{{ quiz.title }}</p>
+                                    <div class="flex flex-wrap items-center gap-2 mt-0.5 md:hidden">
+                                        <span class="text-[10px] font-bold text-indigo-500 uppercase">{{ quiz.subject.name }}</span>
+                                        <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+                                        <span class="text-[10px] text-slate-400 font-medium">{{ quiz.question_count }} Qs • {{ quiz.time_limit_minutes }}m</span>
+                                        <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+                                        {% if quiz.status == 'published' %}
+                                        <span class="text-[10px] font-bold text-emerald-500 uppercase">Live</span>
+                                        {% elif quiz.status == 'draft' %}
+                                        <span class="text-[10px] font-bold text-amber-500 uppercase">Draft</span>
+                                        {% else %}
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">Closed</span>
+                                        {% endif %}
+                                        <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+                                        <span class="text-[10px] font-bold text-indigo-500">{{ quiz.attempts.count }} Subs</span>
+                                    </div>
+                                    <p class="hidden md:block text-[10px] text-slate-400 font-medium mt-0.5">by {{ quiz.created_by.get_full_name|default:quiz.created_by.email|truncatechars:20 }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="hidden md:table-cell px-6 py-4">
+                            <span class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">
+                                <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block"></span>
+                                {{ quiz.subject.name }}
+                            </span>
+                        </td>
+                        <td class="hidden md:table-cell px-6 py-4 text-center">
+                            {% if quiz.status == 'published' %}
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 live-dot inline-block"></span> Live
+                            </span>
+                            {% elif quiz.status == 'draft' %}
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-50 text-amber-600">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span> Draft
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span> Closed
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="hidden md:table-cell px-6 py-4 text-center font-bold text-slate-700">{{ quiz.question_count }}</td>
+                        <td class="hidden md:table-cell px-6 py-4 text-center font-bold text-slate-700">{{ quiz.total_marks }}</td>
+                        <td class="hidden md:table-cell px-6 py-4 text-center text-xs font-medium text-slate-500">{{ quiz.time_limit_minutes }} min</td>
+                        <td class="hidden md:table-cell px-6 py-4 text-center">
+                            <span class="font-black text-sm text-indigo-600">{{ quiz.attempts.count }}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center justify-end gap-1.5">
+                                <a href="{% url 'e_learning:quiz_questions' quiz.pk %}" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all" title="Edit questions">
+                                    <i class="fas fa-pen text-[11px]"></i>
+                                </a>
+                                <a href="{% url 'e_learning:quiz_results' quiz.pk %}" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all" title="View results">
+                                    <i class="fas fa-chart-bar text-[11px]"></i>
+                                </a>
+                                <form method="post" action="{% url 'e_learning:quiz_publish' quiz.pk %}" class="inline">
+                                    {% csrf_token %}
+                                    {% if quiz.status == 'published' %}
+                                    <input type="hidden" name="action" value="close">
+                                    <button type="submit" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Close quiz">
+                                        <i class="fas fa-lock text-[11px]"></i>
+                                    </button>
+                                    {% elif quiz.status == 'draft' %}
+                                    <input type="hidden" name="action" value="publish">
+                                    <button type="submit" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all" title="Publish quiz">
+                                        <i class="fas fa-paper-plane text-[11px]"></i>
+                                    </button>
+                                    {% else %}
+                                    <input type="hidden" name="action" value="draft">
+                                    <button type="submit" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all" title="Revert to draft">
+                                        <i class="fas fa-redo text-[11px]"></i>
+                                    </button>
+                                    {% endif %}
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="px-6 py-16 text-center">
+                            <div class="w-14 h-14 mx-auto bg-slate-100 rounded-2xl flex items-center justify-center mb-3">
+                                <i class="fas fa-clipboard-list text-xl text-slate-400"></i>
+                            </div>
+                            <p class="text-slate-500 font-bold text-sm">No quizzes created yet</p>
+                            <p class="text-xs text-slate-400 mt-1">Get started by creating your first quiz!</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/30">
+            <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Page {{ quizzes.number }} of {{ quizzes.paginator.num_pages }}</span>
+            <div class="flex items-center gap-2">
+                {% if quizzes.has_previous %}
+                <a href="?quiz_page={{ quizzes.previous_page_number }}&attempt_page={{ recent_attempts.number }}#library" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:border-indigo-500 hover:text-indigo-500 transition-all">
+                    <i class="fas fa-chevron-left mr-1"></i> Prev
+                </a>
+                {% endif %}
+                {% if quizzes.has_next %}
+                <a href="?quiz_page={{ quizzes.next_page_number }}&attempt_page={{ recent_attempts.number }}#library" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:border-indigo-500 hover:text-indigo-500 transition-all">
+                    Next <i class="fas fa-chevron-right ml-1"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // ── Animate progress bars ────────────────────────
+    setTimeout(() => {
+        document.querySelectorAll('.progress-fill').forEach(bar => {
+            bar.style.width = bar.getAttribute('data-width') + '%';
+        });
+    }, 200);
+
+    // ── Quiz search/filter ───────────────────────────
+    const searchInput = document.getElementById('quizSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase();
+            document.querySelectorAll('.quiz-row').forEach(row => {
+                const title = row.getAttribute('data-title');
+                row.style.display = title.includes(q) ? '' : 'none';
+            });
+        });
+    }
+
+    // ── Chart defaults ───────────────────────────────
+    Chart.defaults.font.family = "'Outfit', sans-serif";
+
+    // ── Submission Trend Chart ────────────────────────
+    const trendLabels = {{ trend_labels|safe }};
+    const trendCounts = {{ trend_counts|safe }};
+    const trendAvg = {{ trend_avg|safe }};
+
+    const trendCtx = document.getElementById('trendChart');
+    if (trendCtx) {
+        new Chart(trendCtx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: trendLabels.length ? trendLabels : ['No data'],
+                datasets: [
+                    {
+                        label: 'Submissions',
+                        data: trendCounts.length ? trendCounts : [0],
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#6366f1',
+                        pointBorderWidth: 2,
+                        yAxisID: 'y',
+                    },
+                    {
+                        label: 'Avg Score %',
+                        data: trendAvg.length ? trendAvg : [0],
+                        borderColor: '#34d399',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        borderDash: [6, 4],
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointHoverRadius: 5,
+                        pointBackgroundColor: '#34d399',
+                        yAxisID: 'y1',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', cornerRadius: 10, padding: 12, titleFont: { weight: 'bold' } } },
+                scales: {
+                    x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10, weight: '600' }, color: '#64748b', maxTicksLimit: 10 } },
+                    y: { position: 'left', grid: { color: 'rgba(0, 0, 0, 0.05)' }, border: { display: false }, ticks: { font: { size: 10, weight: '600' }, color: '#64748b', stepSize: 1 }, title: { display: true, text: 'Submissions', color: '#475569', font: { size: 10, weight: '700' } } },
+                    y1: { position: 'right', grid: { display: false }, border: { display: false }, ticks: { font: { size: 10, weight: '600' }, color: '#64748b' }, min: 0, max: 100, title: { display: true, text: 'Avg %', color: '#475569', font: { size: 10, weight: '700' } } },
+                }
+            }
+        });
+    }
+
+    // ── Grade Distribution Donut ──────────────────────
+    const donutCtx = document.getElementById('gradeDonut');
+    if (donutCtx) {
+        new Chart(donutCtx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['A (80%+)', 'B (60-79%)', 'C (40-59%)', 'D (<40%)'],
+                datasets: [{
+                    data: [{{ grade_a }}, {{ grade_b }}, {{ grade_c }}, {{ grade_d }}],
+                    backgroundColor: ['#34d399', '#60a5fa', '#fbbf24', '#f87171'],
+                    borderWidth: 0,
+                    hoverOffset: 12,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '70%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { backgroundColor: '#1e293b', cornerRadius: 10, padding: 12 }
+                }
+            }
+        });
+    }
+
+});
+
+// ── Quiz Library: Status filter ──────────────────
+function filterQuizzes(status) {
+    // Update active pill
+    document.querySelectorAll('.quiz-filter-btn').forEach(btn => {
+        btn.classList.toggle('active-filter', btn.getAttribute('data-filter') === status);
+    });
+    // Show/hide rows
+    document.querySelectorAll('.quiz-row').forEach(row => {
+        if (status === 'all') {
+            row.style.display = '';
+        } else {
+            row.style.display = row.getAttribute('data-status') === status ? '' : 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

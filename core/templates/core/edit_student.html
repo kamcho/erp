@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit Student | {{ student.get_full_name }}{% endblock %}
+
+{% block page_header %}
+<h1 class="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">Excel SMS</h1>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto pb-20">
+    <!-- Page Title in Body -->
+    <div class="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'core:student-detail' student.pk %}" class="bg-white border border-slate-200 text-slate-500 hover:text-slate-800 w-10 h-10 rounded-xl shadow-sm flex items-center justify-center transition-all hover:scale-105 active:scale-95">
+                <i class="fas fa-arrow-left text-sm"></i>
+            </a>
+            <div>
+                <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-indigo-900 tracking-tight font-outfit">
+                    Edit Profile
+                </h1>
+                <p class="text-slate-400 text-[12px] font-bold uppercase tracking-[0.2em] mt-1">Updating records for {{ student.get_full_name }}</p>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" class="space-y-8">
+        {% csrf_token %}
+
+        {% if student_form.errors or profile_form.errors %}
+        <div class="p-4 bg-rose-50 border-l-4 border-rose-500 rounded-xl mb-6">
+            <div class="flex gap-3">
+                <i class="fas fa-exclamation-circle text-rose-500 mt-0.5"></i>
+                <div class="text-xs text-rose-700 font-bold uppercase tracking-wide">
+                    Please correct the errors below
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Student Personal Information -->
+        <div class="glass-card shadow-xl shadow-slate-200 border-t-4 border-t-indigo-500">
+            <div class="flex items-center gap-4 mb-8 border-b border-slate-100 pb-6">
+                <div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                    <i class="fas fa-user-edit text-xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-black text-slate-800 uppercase tracking-tight">Personal Details</h2>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Update basic student information</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">First Name</label>
+                    {{ student_form.first_name }}
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Middle Name</label>
+                    {{ student_form.middle_name }}
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Last Name</label>
+                    {{ student_form.last_name }}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Gender</label>
+                    {{ student_form.gender }}
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Birth Date</label>
+                    {{ student_form.date_of_birth }}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Location</label>
+                    {{ student_form.location }}
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Join Date</label>
+                    {{ student_form.joined_date }}
+                </div>
+            </div>
+
+            <div class="mt-6 p-5 bg-slate-50 rounded-xl border border-slate-200">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Fee Category</label>
+                <div class="mt-2">
+                    {{ student_form.fee_category }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Academic Profile -->
+        <div class="glass-card shadow-xl shadow-slate-200 border-t-4 border-t-emerald-500">
+            <div class="flex items-center gap-4 mb-8 border-b border-slate-100 pb-6">
+                <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+                    <i class="fas fa-graduation-cap text-xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-black text-slate-800 uppercase tracking-tight">Academic Placement</h2>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Manage school and class assignment</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Assigned School</label>
+                    <div class="opacity-75 grayscale-[0.5] cursor-not-allowed">
+                        {{ profile_form.school }}
+                    </div>
+                    <p class="text-[9px] font-bold text-slate-400 italic">Note: School assignment is permanent.</p>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Current Class</label>
+                    {{ profile_form.class_id }}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Fee Balance (KES)</label>
+                    <div class="opacity-75 grayscale-[0.5] cursor-not-allowed">
+                        {{ profile_form.fee_balance }}
+                    </div>
+                    <p class="text-[9px] font-bold text-amber-500 italic">Note: Balances are read-only. Use Invoices/Payments to adjust.</p>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Discipline Score</label>
+                    {{ profile_form.discipline }}
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-4">
+            <a href="{% url 'core:student-detail' student.pk %}" class="px-8 py-4 rounded-xl font-black text-slate-400 uppercase tracking-widest text-[11px] hover:bg-slate-50 transition-all">
+                Cancel
+            </a>
+            <button type="submit" class="px-10 py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-[0.15em] text-[11px] shadow-xl shadow-slate-200 hover:bg-slate-800 transition-all">
+                Update Records
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Simple dynamic class filtering if school changes
+    const schoolSelect = document.getElementById('id_school');
+    const classSelect = document.getElementById('id_class_id');
+
+    if (schoolSelect && classSelect) {
+        schoolSelect.addEventListener('change', function() {
+            const schoolId = this.value;
+            classSelect.innerHTML = '<option value="">---------</option>';
+            
+            if (!schoolId) return;
+
+            fetch(`{% url "core:get-school-classes" %}?school_id=${schoolId}`)
+                .then(response => response.json())
+                .then(data => {
+                    data.classes.forEach(cls => {
+                        const option = document.createElement('option');
+                        option.value = cls.id;
+                        option.textContent = cls.name;
+                        classSelect.appendChild(option);
+                    });
+                });
+        });
+    }
+</script>
+{% endblock %}

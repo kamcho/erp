@@ -1,0 +1,479 @@
+{% extends 'base.html' %}
+
+{% block title %}Communication Hub — Linakuu{% endblock %}
+
+{% block header %}
+<div class="flex items-center justify-between mt-2 mb-6">
+    <div>
+        <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Compose text message</h1>
+    </div>
+    <div class="flex items-center gap-3">
+        <div class="flex bg-slate-100 rounded-lg p-1">
+            <button type="button" class="px-5 py-1.5 bg-white shadow-sm rounded-md flex items-center gap-2 text-[13px] font-bold text-slate-800">
+                <i class="fas fa-comment-alt text-slate-600"></i> SMS
+            </button>
+            <button type="button" class="px-5 py-1.5 rounded-md flex items-center gap-2 text-[13px] font-bold text-slate-500 hover:bg-slate-200/50 transition-all">
+                <i class="far fa-envelope text-slate-400"></i> Email
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="post" class="relative pb-24" id="compose-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="create_notification">
+    
+    <div class="flex flex-col xl:flex-row gap-8">
+        <!-- Left Column: Settings -->
+        <div class="flex-1 bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-sm space-y-10">
+            
+            <!-- TO Section -->
+            <div class="flex gap-5">
+                <div class="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-500 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                    <i class="fas fa-check text-[10px]"></i>
+                </div>
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-[17px] font-bold text-slate-800">To</h3>
+                        <button type="button" class="text-xs font-bold text-slate-600 border border-slate-200 rounded-lg px-4 py-1.5 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm">
+                            <i class="fas fa-pencil-alt mr-1.5 text-slate-400"></i> Edit recipients
+                        </button>
+                    </div>
+                    <p class="text-[13px] text-slate-500 mb-5">This text message campaign will be sent to the selected audience.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <select name="target_type" id="target_type" required class="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-slate-700 text-sm font-bold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all cursor-pointer shadow-sm hover:border-slate-300">
+                                {% for value, label in target_choices %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div id="school_field" class="hidden">
+                            <select name="school_id" id="school_id" class="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-slate-700 text-sm font-bold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all cursor-pointer shadow-sm hover:border-slate-300">
+                                <option value="">Select School</option>
+                                {% for school in schools %}
+                                    <option value="{{ school.id }}">{{ school.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div id="grade_field" class="hidden">
+                            <select name="grade_id" id="grade_id" class="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-slate-700 text-sm font-bold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all cursor-pointer shadow-sm hover:border-slate-300">
+                                <option value="">Select Grade</option>
+                                {% for grade in grades %}
+                                    <option value="{{ grade.id }}">{{ grade.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Mock Selected Pills matching user interface -->
+                    <div class="flex flex-wrap gap-2.5">
+                        <span class="inline-flex items-center px-3 py-1.5 rounded-lg bg-sky-50 text-sky-600 text-xs font-bold border border-sky-100">
+                            <i class="fas fa-users mr-2 text-sky-400"></i> <span id="recipients-pill-count">{{ guardians_count }} Recipients</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-slate-100 border-t-2">
+
+            <!-- FROM Section -->
+            <div class="flex gap-5">
+                <div class="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-500 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                    <i class="fas fa-check text-[10px]"></i>
+                </div>
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-[17px] font-bold text-slate-800">From</h3>
+                        <button type="button" class="text-xs font-bold text-slate-600 border border-slate-200 rounded-lg px-4 py-1.5 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm">
+                            <i class="fas fa-pencil-alt mr-1.5 text-slate-400"></i> Edit numbers
+                        </button>
+                    </div>
+                    <p class="text-[13px] text-slate-600">Text messages will be sent from <span class="font-extrabold text-slate-800">System Default Gateway</span>.</p>
+                </div>
+            </div>
+
+            <hr class="border-slate-100 border-t-2">
+
+            <!-- MESSAGE Section -->
+            <div class="flex gap-5">
+                <div class="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-500 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                    <i class="fas fa-check text-[10px]"></i>
+                </div>
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-[17px] font-bold text-slate-800">Message</h3>
+                        <button type="button" class="text-xs font-bold text-slate-600 border border-slate-200 rounded-lg px-4 py-1.5 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm">
+                            <i class="fas fa-pencil-alt mr-1.5 text-slate-400"></i> Edit message
+                        </button>
+                    </div>
+                    <p class="text-[13px] text-slate-500 mb-3">Your message includes <span id="char-count" class="font-bold border-b border-slate-300 text-slate-700">0 plain text characters</span>, which results in <span id="msg-parts" class="font-bold border-b border-slate-300 text-slate-700">1 message part</span>.</p>
+                    
+                    <div class="flex items-start gap-2.5 px-4 py-3 bg-amber-50/80 rounded-xl border border-amber-200/50 mb-5 relative overflow-hidden">
+                        <div class="absolute inset-0 bg-amber-500/5 w-1 h-full"></div>
+                        <i class="fas fa-info-circle text-amber-500 mt-0.5"></i>
+                        <span class="text-[12px] text-amber-800 font-medium leading-relaxed tracking-tight">Messages exceeding <strong class="font-black text-amber-900">140 characters</strong> will be split into multiple parts and billed as separate messages.</span>
+                    </div>
+                    
+                    <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100 relative">
+                        <div class="mb-3">
+                            <input type="text" name="title" id="title-input" required placeholder="Campaign Subject (Internal use)..." 
+                                   class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all font-extrabold shadow-sm placeholder:font-medium placeholder:text-slate-400">
+                        </div>
+                        <div class="relative">
+                            <textarea name="message" id="message-input" rows="6" required placeholder="Hello First name! Type your broadcast message here..." 
+                                      class="w-full p-4 bg-white border border-slate-200 rounded-xl text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all resize-none shadow-sm leading-relaxed"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-slate-100 border-t-2">
+
+            <!-- SEND TIME Section -->
+            <div class="flex gap-5">
+                <div class="w-7 h-7 rounded-full bg-blue-50 border border-blue-100 text-blue-500 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                    <i class="far fa-clock text-[10px]"></i>
+                </div>
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-[17px] font-bold text-slate-800">Send time</h3>
+                        <button type="button" class="text-slate-400 hover:text-slate-600 transition-colors">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <p class="text-[13px] text-slate-500 mb-6">When do you want to send your campaign?</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <label class="block cursor-pointer">
+                            <input type="radio" name="send_time" value="now" class="peer sr-only">
+                            <div class="p-5 border-2 border-slate-100 rounded-2xl peer-checked:border-indigo-500 peer-checked:bg-white bg-slate-50/50 transition-all hover:bg-slate-50 cursor-pointer">
+                                <div class="flex items-center gap-3 mb-2.5">
+                                    <div class="w-4 h-4 rounded-full border-[1.5px] border-slate-300 peer-checked:border-indigo-500 flex items-center justify-center">
+                                        <div class="w-2 h-2 rounded-full bg-indigo-500 hidden peer-checked:block"></div>
+                                    </div>
+                                    <span class="font-bold text-slate-800 text-sm">Send now</span>
+                                </div>
+                                <p class="text-[12px] text-slate-500 pl-7 leading-relaxed">Send your text message campaign now. You will still be able to review everything.</p>
+                            </div>
+                        </label>
+                        <label class="block cursor-pointer">
+                            <input type="radio" name="send_time" value="later" checked class="peer sr-only">
+                            <div class="p-5 border-2 border-slate-100 rounded-2xl peer-checked:border-sky-400 peer-checked:bg-sky-50/30 bg-slate-50/50 transition-all hover:bg-slate-50 shadow-[0_4px_20px_-4px_rgba(14,165,233,0.1)] peer-checked:shadow-none cursor-pointer">
+                                <div class="flex items-center gap-3 mb-2.5">
+                                    <div class="w-4 h-4 rounded-full border-[1.5px] border-slate-300 peer-checked:border-sky-500 flex items-center justify-center">
+                                        <div class="w-2 h-2 rounded-full bg-sky-500 hidden peer-checked:block"></div>
+                                    </div>
+                                    <span class="font-bold text-slate-800 text-sm">Schedule for later</span>
+                                </div>
+                                <p class="text-[12px] text-slate-500 pl-7 leading-relaxed">Choose a specific day and time to send in the future, or set up recurring messages.</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm mt-2">
+                        <!-- Date & Time -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-2">Send date and time</label>
+                            <div class="flex gap-2">
+                                <div class="relative flex-1">
+                                    <input type="date" value="{% now 'Y-m-d' %}" class="w-full pl-9 pr-3 h-11 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 font-bold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all shadow-sm">
+                                    <i class="far fa-calendar absolute left-3.5 top-[14px] text-slate-400"></i>
+                                </div>
+                                <div class="flex gap-1.5 items-center">
+                                    <select class="w-[60px] h-11 px-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 font-bold outline-none cursor-pointer shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all">
+                                        <option>07</option>
+                                    </select>
+                                    <span class="font-bold text-slate-400 mb-1">:</span>
+                                    <select class="w-[60px] h-11 px-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 font-bold outline-none cursor-pointer shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all">
+                                        <option>30</option>
+                                    </select>
+                                    <select class="w-[64px] h-11 px-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 font-bold outline-none cursor-pointer shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all">
+                                        <option>AM</option>
+                                        <option>PM</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Timezone -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-2">Timezone</label>
+                            <select class="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 font-bold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all cursor-pointer shadow-sm">
+                                <option>(UTC +03:00) Europe/Tallinn</option>
+                                <option>(UTC +00:00) GMT</option>
+                            </select>
+                            <p class="text-[10px] text-slate-400 mt-2.5 font-medium leading-relaxed">Please note that TextMagic automatically considers daylight saving time (DST) changes.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Phone Preview -->
+        <div class="w-full xl:w-[360px] flex flex-col items-center shrink-0 pt-0">
+            <div class="flex items-center justify-between w-[320px] mb-6 px-2">
+                <button type="button" class="w-8 h-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-slate-50 shadow-sm transition-all hover:scale-105 active:scale-95">
+                    <i class="fas fa-chevron-left text-[10px]"></i>
+                </button>
+                <div class="text-center">
+                    <div class="text-[13px] font-extrabold text-slate-800">Preview 1 of 1</div>
+                    <div class="text-[11px] font-bold text-sky-500 flex items-center justify-center gap-1.5 mt-0.5 hover:underline cursor-pointer transition-colors hover:text-sky-600">
+                        Anastasia Doe <i class="fas fa-external-link-alt text-[9px]"></i>
+                    </div>
+                </div>
+                <button type="button" class="w-8 h-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-slate-50 shadow-sm transition-all hover:scale-105 active:scale-95">
+                    <i class="fas fa-chevron-right text-[10px]"></i>
+                </button>
+            </div>
+
+            <!-- Phone Frame -->
+            <div class="relative w-[320px] h-[640px] bg-slate-50 rounded-[45px] border-[12px] border-[#e2e8f0] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden ring-1 ring-slate-300">
+                <!-- Status bar -->
+                <div class="absolute top-0 inset-x-0 h-7 flex justify-between items-center px-7 z-20">
+                    <span class="text-[11px] font-bold text-slate-900 tracking-tight">9:41</span>
+                    <div class="flex items-center gap-1.5 text-slate-900 relative right-1">
+                        <i class="fas fa-signal text-[9px]"></i>
+                        <i class="fas fa-wifi text-[9px]"></i>
+                        <i class="fas fa-battery-full text-[11px]"></i>
+                    </div>
+                </div>
+
+                <!-- Notch -->
+                <div class="absolute top-2 left-1/2 -translate-x-1/2 w-[100px] h-[26px] bg-[#1e293b] rounded-[14px] z-20 shadow-inner flex items-center justify-end px-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-[#0f172a] shadow-inner ml-2 mr-1 relative"><div class="absolute inset-[1px] bg-sky-900/40 rounded-full blur-[0.5px]"></div></div>
+                </div>
+                
+                <!-- Header -->
+                <div class="w-full bg-slate-100/90 backdrop-blur-xl pt-[52px] pb-3 px-4 flex flex-col items-center border-b border-slate-200/60 shadow-sm z-10 relative">
+                    <div class="w-12 h-12 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center text-slate-400 text-2xl mb-1 shadow-sm border border-slate-300/50">
+                        <i class="fas fa-user absolute bottom-[-4px]"></i>
+                    </div>
+                    <div class="text-[13px] font-extrabold text-slate-800 tracking-tight">(776) 128-9923</div>
+                </div>
+
+                <!-- Messages -->
+                <div class="flex-1 bg-white p-4 overflow-y-auto flex flex-col gap-3 pb-8 z-0 relative">
+                    <div class="text-[10px] text-slate-400 font-bold text-center mb-3 mt-1">Today 9:41 AM</div>
+                    
+                    <div class="bg-[#f1f5f9] text-slate-800 text-[13px] px-4 py-3 rounded-2xl rounded-tl-sm w-[85%] self-start border border-slate-200/50 shadow-sm leading-relaxed relative" id="phone-preview-text">
+                        <span class="font-bold text-slate-900 block mb-1">Hello Anastasia!</span>
+                        <div id="preview-body">
+                            Message from: Level Up. Gentleman called again, said it is about calling up on a ticket.<br><br>
+                            No one is getting their texts. He has sent an email but no one has got back to him.<br><br>
+                            Reply "Stop" to opt out.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="w-full bg-slate-100/90 backdrop-blur-xl p-3 border-t border-slate-200/60 flex items-center gap-3 relative z-10 pb-6 pt-3">
+                    <div class="w-7 h-7 rounded-full bg-slate-300 flex items-center justify-center text-slate-500 shrink-0">
+                        <i class="fas fa-plus text-[12px]"></i>
+                    </div>
+                    <div class="flex-1 bg-white border border-slate-200 md:border-slate-300 rounded-full h-[34px] flex items-center px-4 shadow-sm">
+                        <span class="text-[12px] text-slate-400 font-medium">Text message</span>
+                    </div>
+                    <div class="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/20">
+                        <i class="fas fa-arrow-up text-[11px]"></i>
+                    </div>
+                </div>
+                
+                <!-- Home Indicator -->
+                <div class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-slate-300 rounded-full z-20"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sticky Bottom Bar -->
+    <div class="fixed bottom-0 lg:left-64 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 sm:px-8 py-4 sm:py-5 flex items-center justify-between z-40 shadow-[0_-10px_30px_-15px_rgba(0,0,0,0.1)]">
+        <div class="flex items-center gap-6">
+            <div class="text-[15px]">
+                <span class="text-slate-600 font-semibold">Estimated cost for this campaign: </span>
+                <span class="text-slate-900 font-extrabold ml-1" id="estimated-cost">0.00 KES</span>
+            </div>
+        </div>
+        <button type="submit" class="px-8 py-3 bg-[#006aff] hover:bg-[#005ce6] text-white font-bold rounded-xl shadow-lg shadow-blue-500/40 transition-all hover:scale-[1.02] active:scale-[0.98] text-[13px] flex items-center gap-2 pr-10 relative overflow-hidden group">
+            <span class="relative z-10 flex items-center gap-2.5">
+                <i class="fas fa-paper-plane text-xs"></i> 
+                Send <span id="btn-count">{{ guardians_count }}</span> messages
+            </span>
+            <div class="absolute inset-0 bg-white/10 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 z-0"></div>
+        </button>
+    </div>
+</form>
+
+<!-- Broadcast History Section (Appended below Form) -->
+<div class="mt-12 mb-8 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+    <div class="flex items-center justify-between mb-8 pb-4 border-b border-slate-100">
+        <div>
+            <h3 class="text-xl font-extrabold text-slate-800">Recent Broadcasts</h3>
+            <p class="text-sm text-slate-500 mt-1">History of all sent messages and their delivery status</p>
+        </div>
+        <a href="{% url 'communication:payment-notifications' %}" class="text-sm font-bold text-sky-600 hover:text-sky-700 border border-sky-100 bg-sky-50 px-4 py-2 rounded-lg transition-colors shadow-sm">
+            View Payment Notifications <i class="fas fa-arrow-right ml-1 text-xs"></i>
+        </a>
+    </div>
+    
+    <div class="divide-y divide-slate-100">
+        {% for notification in notifications %}
+        <div class="py-5 px-4 -mx-4 hover:bg-slate-50 rounded-2xl transition-colors duration-200 flex flex-col md:flex-row md:items-start justify-between gap-4 group">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center text-xl shrink-0 group-hover:bg-white group-hover:shadow-sm border border-transparent group-hover:border-slate-200 transition-all">
+                    <i class="fas fa-bullhorn text-slate-500"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-slate-900 text-base mb-1">{{ notification.title }}</h4>
+                    <p class="text-sm text-slate-600 mb-2 leading-relaxed max-w-3xl line-clamp-2">{{ notification.message }}</p>
+                    <div class="flex flex-wrap items-center gap-3 text-xs font-bold">
+                        <span class="text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md">{{ notification.created_at|date:"M d, Y • H:i" }}</span>
+                        <span class="text-sky-600 bg-sky-50 px-2.5 py-1 rounded-md border border-sky-100">{{ notification.get_target_type_display }}</span>
+                        {% if notification.school %}
+                        <span class="text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100"><i class="fas fa-school mr-1 opacity-70"></i> {{ notification.school.name }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-4 shrink-0 pl-16 md:pl-0">
+                <div class="flex gap-4 items-center">
+                    <div class="text-center px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
+                        <div class="text-emerald-700 font-black text-sm">{{ notification.success_count }}</div>
+                        <div class="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Sent</div>
+                    </div>
+                    {% if notification.failed_count > 0 %}
+                    <div class="flex items-center gap-2">
+                        <div class="text-center px-3 py-1.5 bg-rose-50 rounded-lg border border-rose-100">
+                            <div class="text-rose-700 font-black text-sm">{{ notification.failed_count }}</div>
+                            <div class="text-[10px] text-rose-600 font-bold uppercase tracking-wider">Failed</div>
+                        </div>
+                        <form method="post" action="{% url 'communication:resend-notification' notification.id %}" onsubmit="return confirm('Resend failed messages to recipients who haven\'t received it yet?')">
+                            {% csrf_token %}
+                            <button type="submit" class="p-2 h-[46px] aspect-square rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center justify-center border border-rose-200 shadow-sm group" title="Resend Failed Messages">
+                                <i class="fas fa-redo-alt group-hover:rotate-180 transition-transform duration-300"></i>
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <span class="text-[11px] font-bold text-slate-400">By {{ notification.created_by.first_name|default:"System" }}</span>
+                    <form method="post" action="{% url 'communication:delete-notification' notification.id %}" onsubmit="return confirm('Delete this record?')">
+                        {% csrf_token %}
+                        <button type="submit" class="w-8 h-8 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors flex items-center justify-center border border-transparent hover:border-rose-100">
+                            <i class="fas fa-trash-alt text-[13px]"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="py-16 text-center">
+            <div class="w-20 h-20 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-paper-plane text-2xl text-slate-300"></i>
+            </div>
+            <h4 class="text-lg font-bold text-slate-800">No Broadcasts Yet</h4>
+            <p class="text-slate-500 mt-2">Messages you dispatch will appear here as history.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    const targetType = document.getElementById('target_type');
+    const schoolField = document.getElementById('school_field');
+    const gradeField = document.getElementById('grade_field');
+    const schoolSelect = document.getElementById('school_id');
+    const gradeSelect = document.getElementById('grade_id');
+    const messageInput = document.getElementById('message-input');
+    const titleInput = document.getElementById('title-input');
+    const phonePreviewBody = document.getElementById('preview-body');
+    const charCount = document.getElementById('char-count');
+    const msgParts = document.getElementById('msg-parts');
+    
+    let currentRecipients = {{ guardians_count|default:0 }};
+    const costPerMessage = 0.55;
+
+    function toggleFields() {
+        const val = targetType.value;
+        schoolField.classList.add('hidden');
+        gradeField.classList.add('hidden');
+
+        if (val === 'certain_school' || val === 'grade_certain_school') {
+            schoolField.classList.remove('hidden');
+        }
+        if (val === 'grade_all_schools' || val === 'grade_certain_school') {
+            gradeField.classList.remove('hidden');
+        }
+        
+        fetchRecipientsCount();
+    }
+    
+    async function fetchRecipientsCount() {
+        const tt = targetType.value;
+        const sId = schoolSelect ? schoolSelect.value : '';
+        const gId = gradeSelect ? gradeSelect.value : '';
+        
+        if (tt === 'certain_school' && !sId) return;
+        if (tt === 'grade_all_schools' && !gId) return;
+        if (tt === 'grade_certain_school' && (!sId || !gId)) return;
+        
+        try {
+            const response = await fetch(`/communication/ajax/recipients-count/?target_type=${tt}&school_id=${sId}&grade_id=${gId}`);
+            if(response.ok) {
+                const data = await response.json();
+                currentRecipients = data.guardians_count || 0;
+                updatePreviewAndCount(); // Re-trigger cost calculation
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function updatePreviewAndCount() {
+        const title = titleInput.value;
+        let text = messageInput.value;
+        
+        let displayHtml = "";
+        if (title) displayHtml += `<span class="opacity-0 hidden">${title}</span>`; 
+        
+        if (text) {
+            displayHtml += text.replace(/\n/g, "<br>");
+        } else {
+            displayHtml += `<span class="italic text-slate-400 opacity-70">Type your broadcast message here...</span>`;
+        }
+        phonePreviewBody.innerHTML = displayHtml;
+
+        const count = text.length + title.length;
+        charCount.innerText = `${count} plain text characters`;
+        const parts = Math.max(1, Math.ceil(count / 140));
+        msgParts.innerText = `${parts} message part${parts > 1 ? 's' : ''}`;
+        
+        // Dynamic Cost Calculation
+        const totalCost = (currentRecipients * parts * costPerMessage).toFixed(2);
+        
+        const pillCount = document.getElementById('recipients-pill-count');
+        if (pillCount) pillCount.innerText = currentRecipients + " Recipients";
+        
+        const btnCount = document.getElementById('btn-count');
+        if (btnCount) btnCount.innerText = currentRecipients;
+        
+        const estCost = document.getElementById('estimated-cost');
+        if (estCost) estCost.innerText = totalCost + " KES";
+    }
+
+    targetType.addEventListener('change', toggleFields);
+    schoolSelect.addEventListener('change', fetchRecipientsCount);
+    gradeSelect.addEventListener('change', fetchRecipientsCount);
+    messageInput.addEventListener('input', updatePreviewAndCount);
+    titleInput.addEventListener('input', updatePreviewAndCount);
+    
+    window.addEventListener('load', () => {
+        toggleFields();
+        updatePreviewAndCount();
+    });
+</script>
+{% endblock %}

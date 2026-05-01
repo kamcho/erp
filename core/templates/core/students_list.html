@@ -1,0 +1,389 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Students Directory | Excel SMS{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Inter:wght@100..900&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --primary: #6366f1;
+        --secondary: #94a3b8;
+        --success: #22c55e;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --background: #f8fafc;
+        --card-bg: #ffffff;
+    }
+
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: var(--background);
+    }
+
+    .font-outfit { font-family: 'Outfit', sans-serif; }
+
+    .stat-card {
+        background: var(--card-bg);
+        border: 1px solid #e2e8f0;
+        border-radius: 3px;
+        padding: 1.5rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .stat-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .status-badge {
+        padding: 0.35rem 0.85rem;
+        border-radius: 2rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .status-active { background: #f0fdf4; color: #16a34a; }
+    .status-graduated { background: #f0f9ff; color: #0284c7; }
+    .status-transferred { background: #fefce8; color: #ca8a04; }
+    .status-inactive { background: #fef2f2; color: #dc2626; }
+
+    .filter-tab {
+        padding: 0.75rem 1.25rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--secondary);
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+
+    .filter-tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+
+    .table-container {
+        background: var(--card-bg);
+        border-radius: 3px;
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+
+    .custom-checkbox {
+        width: 1.2rem;
+        height: 1.2rem;
+        border-radius: 3px;
+        border: 2px solid #cbd5e1;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .custom-checkbox:checked {
+        background-color: var(--primary);
+        border-color: var(--primary);
+    }
+
+    .avatar {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 3px;
+        object-fit: cover;
+    }
+    
+    .search-input:focus {
+        box-shadow: none;
+        border-color: var(--primary);
+    }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<h1 class="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">Excel SMS</h1>
+{% endblock %}
+
+{% block content %}
+<div class="mb-10 no-print">
+    <h1 class="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-indigo-900 tracking-tight font-outfit uppercase">
+        Students Directory
+    </h1>
+    <div class="h-1.5 w-20 bg-indigo-600 rounded-full mt-3 mb-2"></div>
+    <p class="text-slate-400 dark:text-slate-500 text-[11px] font-black uppercase tracking-[0.3em]">Institutional Enrollment & Profiles</p>
+</div>
+
+<div class="space-y-8">
+    <!-- Premium Stat Cards (Standardized with Reports Style) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Total Students -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500">
+                    <i class="fas fa-users text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-slate-800 dark:text-white">{{ stat_total }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Total enrollment</p>
+            <div class="text-[12px] text-indigo-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <i class="fas fa-database text-[10px]"></i>
+                <span>Full Directory Count</span>
+            </div>
+        </div>
+
+        <!-- Active Students -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-500">
+                    <i class="fas fa-check-circle text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-emerald-600">{{ stat_active }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Active students</p>
+            <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <i class="fas fa-check text-[10px]"></i>
+                <span>Currently in Session</span>
+            </div>
+        </div>
+
+        <!-- Graduated -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-sky-50 dark:bg-sky-900/30 flex items-center justify-center text-sky-500">
+                    <i class="fas fa-graduation-cap text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-sky-600">{{ stat_graduated }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Graduated alumni</p>
+            <div class="text-[12px] text-sky-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <i class="fas fa-award text-[10px]"></i>
+                <span>Academic Completers</span>
+            </div>
+        </div>
+
+        <!-- Inactive -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center text-rose-500">
+                    <i class="fas fa-user-slash text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-rose-500">{{ stat_inactive }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Inactive / Left</p>
+            <div class="text-[12px] text-rose-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <i class="fas fa-exclamation-circle text-[10px]"></i>
+                <span>Dropped / Transferred</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Table Container -->
+    <div class="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
+        <!-- Table Toolbar -->
+        <div class="px-8 pt-8 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-6">
+                <div>
+                    <h2 class="text-xl font-black text-slate-900 dark:text-white font-outfit tracking-tight">Active Registrations</h2>
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Manage and filter student profiles</p>
+                </div>
+                
+                <div class="flex flex-wrap items-center gap-3">
+                    <form method="get" id="filter-form" class="flex flex-wrap items-center gap-3">
+                        <input type="hidden" name="status" id="status-input" value="{{ selected_status }}">
+                        
+                        <!-- Search Box -->
+                        <div class="relative group min-w-[300px]">
+                            <input type="text" name="q" value="{{ search_query }}" placeholder="Search ADM or name..." 
+                                   class="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[10px] text-sm font-bold text-slate-700 dark:text-slate-200 transition-all focus:bg-white dark:focus:bg-slate-800 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm transition-colors group-focus-within:text-indigo-600"></i>
+                        </div>
+
+                        <!-- Dropdowns Area -->
+                        <div class="flex items-center gap-2">
+                            <select name="school" onchange="this.form.submit()" class="pl-4 pr-10 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[10px] text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest outline-none appearance-none cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-all min-w-[160px]">
+                                <option value="">All Schools</option>
+                                {% for school in schools %}
+                                    <option value="{{ school.id }}" {% if school.id|stringformat:"s" == selected_school %}selected{% endif %}>{{ school.name }}</option>
+                                {% endfor %}
+                            </select>
+
+                            <select name="grade" onchange="this.form.submit()" class="pl-4 pr-10 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[10px] text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest outline-none appearance-none cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-all min-w-[160px]" {% if not selected_school %}disabled{% endif %}>
+                                <option value="">All Classes</option>
+                                {% for grade in grades %}
+                                    <option value="{{ grade.id }}" {% if grade.id|stringformat:"s" == selected_grade %}selected{% endif %}>{{ grade.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </form>
+
+                    <div class="h-10 w-px bg-slate-100 dark:bg-slate-800 mx-2 hidden xl:block"></div>
+
+                    <!-- Actions -->
+                    <div class="flex items-center gap-2">
+                        <button onclick="document.getElementById('export-form').submit()" class="h-12 w-12 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 rounded-[10px] transition-all shadow-sm" title="Export Excel">
+                            <i class="fas fa-file-export text-sm"></i>
+                        </button>
+                        <a href="{% url 'core:create-student' %}" class="h-12 px-6 bg-slate-900 dark:bg-indigo-600 text-white rounded-[10px] font-black text-[11px] uppercase tracking-[0.15em] flex items-center gap-3 hover:bg-slate-800 dark:hover:bg-indigo-700 transition-all shadow-xl shadow-slate-200 dark:shadow-none active:scale-95 group">
+                            <span>Add Student</span>
+                            <i class="fas fa-plus text-[10px] transform group-hover:rotate-90 transition-transform"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Tabs -->
+            <div class="flex items-center gap-1 -mb-[1px]">
+                <button type="button" onclick="setStatus('')" class="filter-tab {% if not selected_status or selected_status == '' %}active{% endif %} pb-4">Overview</button>
+                <button type="button" onclick="setStatus('Active')" class="filter-tab {% if selected_status == 'Active' %}active{% endif %} pb-4">Active</button>
+                <button type="button" onclick="setStatus('Graduated')" class="filter-tab {% if selected_status == 'Graduated' %}active{% endif %} pb-4">Graduated</button>
+                <button type="button" onclick="setStatus('Transferred')" class="filter-tab {% if selected_status == 'Transferred' %}active{% endif %} pb-4">Transferred</button>
+                <button type="button" onclick="setStatus('Inactive')" class="filter-tab {% if selected_status == 'Inactive' %}active{% endif %} pb-4">Inactive</button>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-white border-b border-slate-50">
+                        <th class="py-5 px-8 w-12 text-center">
+                            <input type="checkbox" class="custom-checkbox align-middle">
+                        </th>
+                        <th class="py-5 px-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Student Identity</th>
+                        <th class="py-5 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Status</th>
+                        <th class="py-5 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Class & School</th>
+                        <th class="py-5 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Join Date</th>
+                        <th class="py-5 px-8 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for student in students %}
+                    <tr class="hover:bg-slate-50/50 transition-all group">
+                        <td class="py-5 px-8 text-center">
+                            <input type="checkbox" class="custom-checkbox align-middle transition-transform group-hover:scale-110">
+                        </td>
+                        <td class="py-5 px-4">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-[10px] bg-slate-50 border border-slate-100 flex items-center justify-center font-black text-indigo-600 text-[10px] shadow-sm transition-transform group-hover:rotate-6 overflow-hidden">
+                                    {% if student.photo %}
+                                        <img src="{{ student.photo.url }}" alt="{{ student.get_full_name }}" class="w-full h-full object-cover">
+                                    {% else %}
+                                        <img src="{% static 'img/default-avatar.png' %}" alt="" class="w-full h-full object-cover">
+                                    {% endif %}
+                                </div>
+                                <div class="space-y-0.5">
+                                    <p class="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{{ student.get_full_name }}</p>
+                                    <p class="text-[10px] font-bold text-slate-400 tracking-wider">ADM: {{ student.adm_no }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-5 px-6">
+                            <span class="status-badge 
+                                {% if student.studentprofile.status == 'Active' %}status-active
+                                {% elif student.studentprofile.status == 'Graduated' %}status-graduated
+                                {% elif student.studentprofile.status == 'Transferred' %}status-transferred
+                                {% else %}status-inactive{% endif %}">
+                                {{ student.studentprofile.status|default:"Active" }}
+                            </span>
+                        </td>
+                        <td class="py-5 px-6">
+                            <div class="space-y-0.5">
+                                <p class="text-xs font-bold text-slate-700">
+                                    {% if student.studentprofile.class_id %}
+                                        {{ student.studentprofile.class_id.grade.name }} • {{ student.studentprofile.class_id.name }}
+                                    {% else %}
+                                        No Class Linked
+                                    {% endif %}
+                                </p>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{{ student.studentprofile.school.name|default:"Base School" }}</p>
+                            </div>
+                        </td>
+                        <td class="py-5 px-6">
+                            <p class="text-xs font-bold text-slate-700 whitespace-nowrap">{{ student.joined_date|date:"d M Y" }}</p>
+                        </td>
+                        <td class="py-5 px-8 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <a href="{% url 'core:student-detail' student.pk %}" class="w-8 h-8 flex items-center justify-center rounded-[10px] bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="View Profile">
+                                    <i class="far fa-eye text-xs"></i>
+                                </a>
+                                <a href="{% url 'core:update-student' student.pk %}" class="w-8 h-8 flex items-center justify-center rounded-[10px] bg-slate-50 text-slate-400 hover:bg-indigo-600 hover:text-white transition-all shadow-sm" title="Edit Student">
+                                    <i class="far fa-edit text-xs"></i>
+                                </a>
+                                <a href="{% url 'core:delete-student' student.pk %}" class="w-8 h-8 flex items-center justify-center rounded-[10px] bg-slate-50 text-slate-400 hover:bg-rose-500 hover:text-white transition-all shadow-sm" title="Delete">
+                                    <i class="far fa-trash-alt text-xs"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="py-24 text-center">
+                            <div class="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-slate-200 text-3xl">
+                                <i class="fas fa-users-slash"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-slate-900 font-outfit">No Students Found</h3>
+                            <p class="text-xs font-medium text-slate-400 mt-1">Adjust your filters to see more results</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <div class="px-8 py-6 bg-slate-50/50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                Showing <span class="text-slate-900">{{ page_obj.start_index }}</span> to <span class="text-slate-900">{{ page_obj.end_index }}</span> of {{ paginator.count }} entries
+            </p>
+            
+            <div class="flex items-center gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_school %}&school={{ selected_school }}{% endif %}{% if selected_grade %}&grade={{ selected_grade }}{% endif %}{% if selected_class %}&class={{ selected_class }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}" 
+                   class="px-4 py-2 bg-white border border-slate-200 text-slate-400 rounded-[10px] text-xs font-bold hover:bg-slate-50 hover:text-slate-600 transition-all flex items-center gap-2">
+                    <i class="fas fa-chevron-left text-[8px]"></i>
+                    Prev
+                </a>
+                {% endif %}
+                
+                <div class="flex items-center -space-x-px">
+                    {% for n in paginator.page_range %}
+                        {% if n == page_obj.number %}
+                            <span class="w-9 h-9 flex items-center justify-center bg-indigo-600 text-white text-xs font-black rounded-[10px] shadow-lg shadow-indigo-100 relative z-10">{{ n }}</span>
+                        {% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}
+                            <a href="?page={{ n }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_school %}&school={{ selected_school }}{% endif %}{% if selected_grade %}&grade={{ selected_grade }}{% endif %}{% if selected_class %}&class={{ selected_class }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}" 
+                               class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-indigo-600 text-xs font-bold transition-all">{{ n }}</a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_school %}&school={{ selected_school }}{% endif %}{% if selected_grade %}&grade={{ selected_grade }}{% endif %}{% if selected_class %}&class={{ selected_class }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}" 
+                   class="px-4 py-2 bg-white border border-slate-200 text-slate-400 rounded-[10px] text-xs font-bold hover:bg-slate-50 hover:text-slate-600 transition-all flex items-center gap-2">
+                    Next
+                    <i class="fas fa-chevron-right text-[8px]"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Hidden export form -->
+<form id="export-form" method="get" action="" style="display: none;">
+    <input type="hidden" name="export" value="true">
+    <input type="hidden" name="q" value="{{ search_query }}">
+    <input type="hidden" name="status" value="{{ selected_status }}">
+    <input type="hidden" name="school" value="{{ selected_school }}">
+    <input type="hidden" name="grade" value="{{ selected_grade }}">
+</form>
+
+<script>
+    function setStatus(status) {
+        document.getElementById('status-input').value = status;
+        document.getElementById('filter-form').submit();
+    }
+</script>
+{% endblock %}

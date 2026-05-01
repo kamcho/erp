@@ -1,0 +1,404 @@
+{% extends 'base.html' %}
+
+{% block title %}Payroll Management — Excel SMS{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    body { background-color: #f7f9fc; } /* Soft blue-gray background from image */
+    
+    .glass-blob {
+        position: absolute;
+        width: 150%;
+        height: 150%;
+        top: -50%;
+        left: -25%;
+        background: radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(59, 130, 246, 0.4) 40%, rgba(79, 70, 229, 0) 70%);
+        border-radius: 50%;
+        filter: blur(20px);
+    }
+
+    .form-checkbox {
+        width: 1.1rem;
+        height: 1.1rem;
+        border-radius: 0.3rem;
+        border: 2px solid #cbd5e1;
+        cursor: pointer;
+    }
+
+    .status-badge {
+        font-size: 0.65rem; font-weight: 800; padding: 0.35rem 0.85rem;
+        border-radius: 999px; letter-spacing: 0.02em;
+    }
+    .status-paid { background: #dcfce7; color: #166534; }
+    .status-pending { background: #fef08a; color: #854d0e; }
+    
+    .table-th {
+        font-size: 0.7rem; font-weight: 700; color: #64748b; padding: 1.25rem 1rem;
+        text-align: left; border-bottom: 1px solid #f1f5f9;
+    }
+    .table-td {
+        padding: 1rem; border-bottom: 1px solid #f8fafc;
+    }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<!-- We handle the header manually below -->
+{% endblock %}
+
+{% block content %}
+<!-- HEADER ROW -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-200 flex items-center justify-center text-indigo-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+        </div>
+        <h1 class="text-2xl font-bold text-slate-800 tracking-tight">Payroll</h1>
+    </div>
+    
+    <div class="flex items-center gap-3">
+        <button class="px-4 py-2 border border-slate-200 bg-white text-slate-700 rounded-lg text-[13px] font-bold shadow-sm hover:bg-slate-50 transition-colors flex items-center gap-2">
+            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            Payroll Settings
+        </button>
+        <div class="px-4 py-2 border border-slate-200 bg-white text-slate-700 rounded-lg text-[13px] font-bold shadow-sm flex items-center gap-2 cursor-pointer hover:bg-slate-50">
+            <i class="far fa-calendar text-indigo-600"></i>
+            {% if date_from %}{{ date_from }} — {{ date_to }}{% else %}26 Jan 2024 — 25 Feb 2024{% endif %}
+            <i class="fas fa-chevron-down text-slate-400 ml-2"></i>
+        </div>
+        <button class="px-4 py-2 bg-[#1e3a8a] text-white rounded-lg text-[13px] font-bold shadow-sm hover:bg-blue-900 transition-colors flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+            Export CSV
+        </button>
+    </div>
+</div>
+
+<!-- STAT CARDS ROW -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Monthly Payroll -->
+    <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center">
+                <i class="fas fa-dollar-sign text-indigo-600 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">KSh {{ total_paid|floatformat:0 }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Monthly Payroll</p>
+        <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+            <div class="text-[12px] text-indigo-500 font-semibold flex items-center gap-1.5">
+                <i class="fas fa-chart-line text-[10px]"></i>
+                <span>Gross Spend</span>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">
+                -12.5%
+            </span>
+        </div>
+    </div>
+
+    <!-- Unpaid Balances -->
+    <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center">
+                <i class="fas fa-clock text-rose-500 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">KSh {{ total_unpaid|floatformat:0 }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Unpaid Balances</p>
+        <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+            <div class="text-[12px] text-indigo-500 font-semibold flex items-center gap-1.5">
+                <i class="fas fa-receipt text-[10px]"></i>
+                <span>Arrears</span>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">
+                -5.3%
+            </span>
+        </div>
+    </div>
+
+    <!-- Bonuses & Incentives -->
+    <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                <i class="fas fa-magic text-emerald-500 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">KSh 150,000</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Bonuses & Incentives</p>
+        <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+            <div class="text-[12px] text-indigo-500 font-semibold flex items-center gap-1.5">
+                <i class="fas fa-award text-[10px]"></i>
+                <span>Rewards</span>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase bg-indigo-50 text-indigo-600 border border-indigo-100">
+                +12.3%
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- CHARTS GRID -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-6 mb-6">
+    <!-- Column 1: Overview Chart -->
+    <div class="xl:col-span-9 bg-white rounded-[1.5rem] p-6 shadow-sm border border-slate-100 flex flex-col relative">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-8 z-10">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 bg-slate-100 rounded text-slate-600 flex items-center justify-center text-[10px]">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <h2 class="text-[14px] font-bold text-slate-800">Overview</h2>
+            </div>
+            <div class="flex items-center bg-slate-50 border border-slate-100 rounded-lg p-1 mt-4 sm:mt-0">
+                <button class="px-3 py-1 text-[11px] font-bold text-slate-500 rounded hover:text-slate-800 transition-colors">Day</button>
+                <button class="px-3 py-1 text-[11px] font-bold text-slate-500 rounded hover:text-slate-800 transition-colors">Week</button>
+                <button class="px-3 py-1 text-[11px] font-bold bg-white text-indigo-600 shadow-sm rounded">Month</button>
+            </div>
+        </div>
+        
+        <div class="h-full min-h-[260px] w-full mt-auto relative z-10">
+            <canvas id="overviewChart"></canvas>
+        </div>
+        
+        <!-- Custom Legend at bottom -->
+        <div class="flex items-center justify-center gap-6 mt-4 pt-2 z-10">
+            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                <span class="w-3 h-3 rounded-sm bg-[#2563eb]"></span> Monthly Payroll
+            </div>
+            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                <span class="w-3 h-3 rounded-sm bg-[#93c5fd]"></span> Overtime
+            </div>
+            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                <span class="w-3 h-3 border-2 border-slate-100 rounded-sm bg-white"></span> Bonuses & Incentives
+            </div>
+        </div>
+    </div>
+
+    <!-- Column 2: AI Card -->
+    <div class="xl:col-span-3 rounded-[1.5rem] p-6 shadow-sm border border-slate-100 bg-white relative overflow-hidden flex flex-col items-center text-center">
+        <!-- Abstract gradient blob -->
+        <div class="glass-blob"></div>
+        
+        <button class="absolute top-4 right-4 text-white opacity-80 hover:opacity-100 z-10">
+            <i class="fas fa-times"></i>
+        </button>
+
+        <div class="w-16 h-16 bg-[#1e3a8a] rounded-[1rem] shadow-xl relative z-10 mt-10 mb-6 flex items-center justify-center text-white">
+            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L9 9H2L7.5 13.5L5.5 21L12 16.5L18.5 21L16.5 13.5L22 9H15L12 2Z"></path></svg>
+        </div>
+        
+        <h3 class="text-xl font-bold text-slate-900 mb-2 relative z-10">Stella AI</h3>
+        <p class="text-[12px] font-medium text-slate-500 mb-8 relative z-10 px-2 leading-relaxed">
+            Generate your financial report with ease with our AI personal assistant
+        </p>
+        
+        <button class="w-full mt-auto py-3.5 bg-[#1e3a8a] text-white rounded-xl text-[13px] font-bold hover:bg-blue-900 transition-colors shadow-lg shadow-blue-900/20 relative z-10">
+            Try now!
+        </button>
+    </div>
+</div>
+
+<!-- BOTTOM SECTION: Employee Table -->
+<div class="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden mb-8">
+    
+    <!-- Table Toolbar -->
+    <div class="px-6 py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-slate-50 text-indigo-600 flex items-center justify-center text-[12px] border border-slate-200">
+                <i class="fas fa-user-friends"></i>
+            </div>
+            <h2 class="text-sm font-bold text-slate-800">Employee</h2>
+        </div>
+        
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <form method="get" class="flex-1 md:w-64 relative">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" name="q" value="{{ q }}" placeholder="Search employee" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-medium text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all">
+            </form>
+            
+            <button class="px-4 py-2.5 border border-slate-200 bg-white text-slate-700 rounded-xl text-[12px] font-bold hover:bg-slate-50 transition-colors flex items-center gap-2 shrink-0">
+                <i class="fas fa-filter text-indigo-500"></i> Filter
+            </button>
+            
+            <div class="flex bg-slate-50 p-1 border border-slate-200 rounded-xl shrink-0 hidden sm:flex">
+                <button class="px-3 py-1.5 rounded-lg text-slate-600 text-[11px] font-bold hover:bg-white hover:shadow-sm transition-all"><i class="fas fa-th-large mr-1"></i> Grid</button>
+                <button class="px-3 py-1.5 rounded-lg bg-white shadow-sm text-indigo-600 text-[11px] font-bold"><i class="fas fa-list mr-1"></i> List</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Table -->
+    <div class="overflow-x-auto p-2 border-t border-slate-100">
+        <table class="w-full text-left" style="border-spacing: 0;">
+            <thead>
+                <tr>
+                    <th class="table-th w-10 pl-6"><input type="checkbox" class="form-checkbox bg-white"></th>
+                    <th class="table-th flex items-center gap-1 cursor-pointer">Employee <i class="fas fa-sort text-[8px] text-slate-300"></i></th>
+                    <th class="table-th cursor-pointer text-center">Position <i class="fas fa-sort text-[8px] text-slate-300"></i></th>
+                    <th class="table-th cursor-pointer">Salary <i class="fas fa-sort text-[8px] text-slate-300"></i></th>
+                    <th class="table-th cursor-pointer">Recurring <i class="fas fa-sort text-[8px] text-slate-300"></i></th>
+                    <th class="table-th cursor-pointer">Overtime <i class="fas fa-sort text-[8px] text-slate-300"></i></th>
+                    <th class="table-th cursor-pointer">Status <i class="fas fa-sort text-[8px] text-slate-300"></i></th>
+                    <th class="table-th"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for staff in staff_members %}
+                <tr class="hover:bg-slate-50/50 transition-colors group">
+                    <td class="table-td pl-6"><input type="checkbox" class="form-checkbox"></td>
+                    <td class="table-td text-nowrap pr-8">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs overflow-hidden shrink-0">
+                                {% if staff.profile_pic %}
+                                <img src="{{ staff.profile_pic.url }}" class="w-full h-full object-cover">
+                                {% else %}
+                                {{ staff.first_name|first }}{{ staff.last_name|first }}
+                                {% endif %}
+                            </div>
+                            <div>
+                                <p class="text-[13px] font-bold text-slate-800">{{ staff.get_full_name }}</p>
+                                <p class="text-[11px] font-medium text-slate-400">{{ staff.email }}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="table-td text-center text-nowrap pr-8">
+                        <span class="text-[12px] font-bold text-slate-600">{{ staff.role|default:"Staff" }}</span>
+                    </td>
+                    <td class="table-td text-nowrap pr-8">
+                        <span class="text-[13px] font-bold text-slate-800">KSh {{ staff.salary_profile.basic_salary|floatformat:0 }}</span>
+                    </td>
+                    <td class="table-td text-nowrap pr-8">
+                        <span class="text-[12px] font-bold text-slate-600">Recurring</span>
+                    </td>
+                    <td class="table-td text-nowrap pr-8">
+                        <span class="text-[12px] font-bold text-slate-600">{% if staff.role == 'Admin' %}12hrs{% elif staff.role == 'Teacher' %}8hrs{% else %}-{% endif %}</span>
+                    </td>
+                    <td class="table-td text-nowrap pr-8">
+                        {% if staff.salary_profile.salary_balance <= 0 %}
+                            <span class="status-badge status-paid">Paid</span>
+                        {% else %}
+                            <span class="status-badge status-pending">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td class="table-td text-right pr-6">
+                        <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <a href="{% url 'accounts:process-payroll-payment' staff.id %}" class="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-slate-50 transition-colors" title="Process Payment">
+                                <i class="fas fa-print text-[11px]"></i>
+                            </a>
+                            <a href="#" class="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-slate-50 transition-colors" title="View Details">
+                                <i class="fas fa-eye text-[11px]"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-10 text-slate-400 text-sm font-bold">No staff found matching your search.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Table Footer / Pagination -->
+    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Showing {{ page_obj.start_index|default:"0" }} to {{ page_obj.end_index|default:"0" }} of {{ paginator.count|default:"0" }} entries</span>
+        <div class="flex items-center gap-1">
+            <button class="px-3 py-1.5 border border-slate-200 rounded text-slate-400 text-[11px] font-bold hover:bg-slate-50">&lt;</button>
+            <button class="px-3 py-1.5 bg-indigo-600 text-white rounded text-[11px] font-bold shadow-sm">1</button>
+            <button class="px-3 py-1.5 border border-slate-200 rounded text-slate-600 text-[11px] font-bold hover:bg-slate-50">2</button>
+            <button class="px-3 py-1.5 border border-slate-200 rounded text-slate-600 text-[11px] font-bold hover:bg-slate-50">3</button>
+            <button class="px-3 py-1.5 border border-slate-200 rounded text-slate-400 text-[11px] font-bold hover:bg-slate-50">&gt;</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const monthlySummary = {{ monthly_summary_json|safe|default:"[]" }};
+    const ctxOverview = document.getElementById('overviewChart');
+
+    if (ctxOverview && monthlySummary.length > 0) {
+        
+        // Transform the data to match the image's stacked visual
+        const labels = monthlySummary.map(d => d.month.substring(0, 3));
+        const data1 = monthlySummary.map(d => d.total); // Current total
+        
+        // Simulating the visual segments (since no real stacked data available yet)
+        const data2 = data1.map(val => val * 0.4); 
+        const data3 = data1.map(val => val * 0.2);
+
+        new Chart(ctxOverview.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Monthly Payroll',
+                        data: data1,
+                        backgroundColor: '#2563eb', // Blue
+                        barThickness: 8,
+                        borderRadius: {topLeft: 0, topRight: 0, bottomLeft: 4, bottomRight: 4},
+                    },
+                    {
+                        label: 'Overtime',
+                        data: data2,
+                        backgroundColor: '#93c5fd', // Light Blue
+                        barThickness: 8,
+                        borderRadius: 0,
+                    },
+                    {
+                        label: 'Bonuses',
+                        data: data3,
+                        backgroundColor: '#f8fafc', // Very Light
+                        borderColor: '#e2e8f0',
+                        borderWidth: {left: 1, right: 1, top: 1, bottom: 0},
+                        barThickness: 8,
+                        borderRadius: {topLeft: 4, topRight: 4, bottomLeft: 0, bottomRight: 0},
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: { display: false },
+                        ticks: {
+                            font: { size: 10, weight: '700' },
+                            color: '#64748b'
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        grid: {
+                            color: '#f1f5f9',
+                            drawBorder: false,
+                            borderDash: [5, 5]
+                        },
+                        ticks: {
+                            font: { size: 10, weight: '700' },
+                            color: '#64748b',
+                            callback: function(value) {
+                                return value >= 1000 ? (value/1000) + 'k' : value;
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        padding: 12,
+                        titleFont: { size: 13, weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        cornerRadius: 8
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+
+{% block title %}Process Staff Payment — Excel SMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { background-color: #f7f9fc; }
+    .form-input {
+        width: 100%;
+        padding: 0.875rem 1.25rem;
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: #334155;
+        outline: none;
+        transition: all 0.2s;
+    }
+    .form-input:focus {
+        background-color: #fff;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    }
+    .form-label {
+        display: block;
+        font-size: 0.65rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center gap-4 mb-2">
+    <a href="{% url 'accounts:payroll-list' %}" class="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-[#1e3a8a] shadow-sm transition-all">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <div>
+        <h1 class="text-2xl font-bold text-slate-800 tracking-tight">Process Payment</h1>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+    
+    <!-- LEFT: Staff Summary Card -->
+    <div class="lg:col-span-4 flex flex-col gap-6">
+        <div class="bg-white rounded-[1.5rem] p-8 shadow-sm border border-slate-100 flex flex-col items-center text-center relative overflow-hidden">
+            <!-- Decorative banner top -->
+            <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-br from-slate-100 to-slate-200"></div>
+            
+            <div class="w-24 h-24 rounded-[1.5rem] bg-white text-[#1e3a8a] flex items-center justify-center text-4xl font-black mt-4 mb-4 shadow-sm border border-slate-100 relative z-10 overflow-hidden">
+                {% if staff.profile_pic %}
+                <img src="{{ staff.profile_pic.url }}" class="w-full h-full object-cover">
+                {% else %}
+                {{ staff.first_name|first }}{{ staff.last_name|first }}
+                {% endif %}
+            </div>
+            
+            <h3 class="text-xl font-bold text-slate-900 mb-1 z-10">{{ staff.get_full_name }}</h3>
+            <p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-6 z-10">{{ staff.role|default:"Staff" }}</p>
+            
+            <div class="w-full space-y-3 z-10">
+                <div class="bg-slate-50 border border-slate-100 rounded-xl p-4 flex items-center justify-between">
+                    <span class="text-xs font-bold text-slate-500">Email</span>
+                    <span class="text-sm font-bold text-slate-800">{{ staff.email }}</span>
+                </div>
+                <div class="bg-slate-50 border border-slate-100 rounded-xl p-4 flex items-center justify-between">
+                    <span class="text-xs font-bold text-slate-500">Standard Salary</span>
+                    <span class="text-sm font-bold text-slate-800">KSh {{ salary_profile.basic_salary|floatformat:2 }}</span>
+                </div>
+                <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex flex-col items-center justify-center gap-1 mt-2">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-[#1e3a8a] opacity-80">Unpaid Balance</span>
+                    <span class="text-2xl font-black text-[#1e3a8a]">KSh {{ salary_profile.salary_balance|floatformat:2 }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: Disbursement Form -->
+    <div class="lg:col-span-8 flex flex-col gap-6">
+        <div class="bg-white rounded-[1.5rem] p-8 shadow-sm border border-slate-100 relative">
+            <div class="flex items-center gap-3 mb-8 pb-4 border-b border-slate-100">
+                <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-[12px] border border-indigo-100">
+                    <i class="fas fa-coins text-[#1e3a8a]"></i>
+                </div>
+                <h2 class="text-base font-bold text-slate-800">Disbursement Details</h2>
+            </div>
+
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="form-label">Amount to Pay</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">KSh</span>
+                            <input type="number" step="0.01" name="amount" required value="{{ salary_profile.salary_balance }}" class="form-input !pl-14 text-lg !font-black !text-[#1e3a8a]">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Payment Date</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400"><i class="far fa-calendar"></i></span>
+                            <input type="date" name="payment_date" required id="id_payment_date" class="form-input !pl-10">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="form-label">Payment Method</label>
+                        <div class="relative">
+                            <select name="method" required class="form-input appearance-none">
+                                {% for val, label in payment_methods %}
+                                    <option value="{{ val }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Reference (Optional)</label>
+                        <input type="text" name="reference" placeholder="Check #, Transaction ID..." class="form-input">
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit" class="w-full py-4 bg-[#1e3a8a] text-white rounded-[1rem] text-[13px] font-bold hover:bg-blue-900 transition-colors shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2">
+                        <i class="fas fa-check-circle"></i> Confirm & Process Payment
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Recent Payments Snippet -->
+        <div class="bg-white rounded-[1.5rem] p-6 shadow-sm border border-slate-100">
+            <h4 class="text-sm font-bold text-slate-800 mb-6">Recent Payments</h4>
+            <div class="space-y-3">
+                {% for payment in staff.staffpayment_set.all|dictsortreversed:"payment_date"|slice:":3" %}
+                <div class="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-lg bg-white shadow-sm border border-slate-200 flex items-center justify-center text-slate-400">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">KSh {{ payment.amount|floatformat:2 }}</p>
+                            <p class="text-[11px] text-slate-500 font-medium">{{ payment.payment_method }} • {{ payment.reference|default:"No reference" }}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[11px] font-bold text-slate-600 block mb-1">Date</p>
+                        <span class="px-2.5 py-1 bg-white border border-slate-200 text-slate-600 font-bold text-[10px] rounded-md">{{ payment.payment_date|date:"M d, Y" }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-8 text-center text-slate-400 text-sm font-bold border-2 border-dashed border-slate-100 rounded-xl">
+                    No payment history recorded yet.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateInput = document.getElementById('id_payment_date');
+        if (!dateInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+        }
+    });
+</script>
+{% endblock %}

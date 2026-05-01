@@ -1,0 +1,664 @@
+{% extends 'base.html' %}
+
+{% block title %}Transport Management — Linakuu{% endblock %}
+
+{% block header %}
+<div class="flex items-center gap-4">
+    <div>
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Fleet & Transport</h1>
+        <p class="text-slate-500 mt-1 font-medium">Manage routes, school buses, and student travel assignments</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Stat Cards -->
+    <div class="glass-card bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-0">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md">
+                <i class="fas fa-bus text-xl"></i>
+            </div>
+            <div>
+                <p class="text-blue-100 text-xs font-bold uppercase tracking-wider">Total Vehicles</p>
+                <h3 class="text-2xl font-black">{{ total_vehicles }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-0">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md">
+                <i class="fas fa-route text-xl"></i>
+            </div>
+            <div>
+                <p class="text-emerald-100 text-xs font-bold uppercase tracking-wider">Active Routes</p>
+                <h3 class="text-2xl font-black">{{ total_routes }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card bg-gradient-to-br from-amber-500 to-orange-600 text-white border-0">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md">
+                <i class="fas fa-user-check text-xl"></i>
+            </div>
+            <div>
+                <p class="text-amber-100 text-xs font-bold uppercase tracking-wider">Students Assigned</p>
+                <h3 class="text-2xl font-black">{{ total_assigned }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Left Column: Assignments -->
+    <div class="lg:col-span-2 space-y-8">
+        <div class="glass-card p-0 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
+                <div>
+                    <h3 class="text-lg font-black text-slate-800">Student Assignments</h3>
+                    {% if active_year or active_term %}
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                        <span class="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none">Active: {{ active_term.name }} {{ active_year.start_date.year }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleModal('assignModal')" class="btn btn-primary text-xs py-2 px-6 rounded-xl shadow-lg shadow-indigo-100">
+                        <i class="fas fa-plus mr-1"></i> New Assignment
+                    </button>
+                </div>
+            </div>
+
+            <!-- Inline Filter Bar -->
+            <div class="px-6 py-4 border-b border-slate-100 bg-white">
+                <form method="get" class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
+                    {% if can_change_school %}
+                    <div>
+                        <select name="school" onchange="this.form.submit()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-[11px] font-bold text-slate-700">
+                            <option value="">All Schools</option>
+                            {% for school in schools %}
+                                <option value="{{ school.id }}" {% if selected_school == school.id %}selected{% endif %}>{{ school.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <div>
+                        <select name="class" onchange="this.form.submit()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-[11px] font-bold text-slate-700">
+                            <option value="">All Classes</option>
+                            {% for class in classes %}
+                                <option value="{{ class.id }}" {% if selected_class == class.id %}selected{% endif %}>{{ class.grade.name }} - {{ class.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="lg:col-span-2 flex items-center gap-2">
+                        <div class="relative flex-grow">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                            <input type="text" name="q" value="{{ search_query|default:'' }}" placeholder="Name or ADM..." class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-[11px] font-bold text-slate-700">
+                        </div>
+                        <button type="submit" class="p-2 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-colors">
+                            <i class="fas fa-filter text-xs"></i>
+                        </button>
+                        {% if selected_school or selected_class or search_query %}
+                        <a href="{% url 'transport:dashboard' %}" class="p-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 transition-colors">
+                            <i class="fas fa-times text-xs"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/50">
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Student</th>
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Class</th>
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Route</th>
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Vehicle</th>
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for student in students %}
+                        {% with assignment=student.active_transport %}
+                        <tr class="transition-colors group {% if assignment %}bg-emerald-50/30 hover:bg-emerald-50/50{% else %}bg-rose-50/30 hover:bg-rose-50/50{% endif %}">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full {% if assignment %}bg-emerald-100 text-emerald-600{% else %}bg-rose-100 text-rose-600{% endif %} flex items-center justify-center font-bold text-xs uppercase">
+                                        {{ student.first_name|first }}{{ student.last_name|first }}
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-slate-800 text-sm leading-tight">{{ student.first_name }} {{ student.last_name }}</p>
+                                        <p class="text-[9px] text-indigo-500 font-black uppercase tracking-widest mt-0.5">ADM: {{ student.adm_no }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <p class="text-[11px] font-bold text-slate-700 leading-tight">
+                                    {{ student.studentprofile.class_id.grade.name|default:"--" }}
+                                </p>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+                                    {{ student.studentprofile.class_id.name|default:"No Stream" }}
+                                </p>
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if assignment %}
+                                <p class="font-bold text-slate-600 text-sm leading-tight">{{ assignment.route.name }}</p>
+                                <p class="text-[9px] font-black text-indigo-500 uppercase tracking-widest mt-0.5">
+                                    {% if assignment.trip_type == 'one_way' %}1 Way{% else %}Round Trip{% endif %}
+                                </p>
+                                <div class="mt-2 flex items-center gap-1.5">
+                                    <i class="far fa-calendar-alt text-[9px] text-slate-400"></i>
+                                    <span class="text-[9px] font-black {% if assignment.end_date < today %}text-rose-500{% else %}text-slate-500{% endif %} uppercase tracking-tighter">
+                                        Ends: {{ assignment.end_date|date:"M d, Y"|default:"TBD" }}
+                                    </span>
+                                </div>
+                                {% else %}
+                                <span class="text-[10px] font-black uppercase text-rose-400">Unassigned</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if assignment %}
+                                <span class="px-2 py-1 bg-white border border-emerald-100 rounded text-[10px] font-black uppercase text-emerald-600 shadow-sm">
+                                    {{ assignment.vehicle.plate_number|default:"No Bus" }}
+                                </span>
+                                {% else %}
+                                <span class="px-2 py-1 bg-white border border-rose-100 rounded text-[10px] font-black uppercase text-rose-300 shadow-sm">
+                                    N/A
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-right flex items-center justify-end gap-2">
+                                
+                                <button onclick="openAssignModal('{{ student.id }}')" class="text-rose-400 hover:text-rose-600 transition-colors">
+                                    <i class="fas fa-plus-circle"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endwith %}
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">No students found matching current filters.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <!-- Pagination -->
+            {% if students.has_other_pages %}
+            <div class="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+                <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+                    Showing {{ students.start_index }} - {{ students.end_index }} of {{ students.paginator.count }}
+                </p>
+                <div class="flex gap-2">
+                    {% if students.has_previous %}
+                        <a href="?page={{ students.previous_page_number }}{% if selected_school %}&school={{ selected_school }}{% endif %}{% if selected_class %}&class={{ selected_class }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" 
+                           class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
+                            <i class="fas fa-chevron-left text-[10px]"></i>
+                        </a>
+                    {% endif %}
+                    
+                    <span class="px-3 h-8 flex items-center justify-center rounded-lg bg-indigo-600 text-white text-xs font-black shadow-lg shadow-indigo-100 min-w-[32px]">
+                        {{ students.number }}
+                    </span>
+
+                    {% if students.has_next %}
+                        <a href="?page={{ students.next_page_number }}{% if selected_school %}&school={{ selected_school }}{% endif %}{% if selected_class %}&class={{ selected_class }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" 
+                           class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
+                            <i class="fas fa-chevron-right text-[10px]"></i>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right Column: Infrastructure -->
+    <div class="space-y-8">
+        <!-- Routes -->
+        <div class="glass-card">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-black text-slate-800">Routes</h3>
+                <button onclick="openRouteModal()" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <div class="space-y-3">
+                {% for route in routes %}
+                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 group relative">
+                    <button onclick="openRouteModal('{{ route.id }}', '{{ route.name|escapejs }}', '{{ route.description|escapejs }}', '{{ route.one_way_fee }}', '{{ route.round_trip_fee }}')" 
+                            class="absolute top-4 right-4 text-slate-300 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100">
+                        <i class="fas fa-edit text-xs"></i>
+                    </button>
+                    <div class="flex flex-col mb-1">
+                        <h4 class="font-black text-slate-800 text-sm">{{ route.name }}</h4>
+                        <div class="flex gap-2 mt-0.5">
+                            <span class="text-[9px] font-black text-emerald-600 uppercase">OW: {{ route.one_way_fee }}</span>
+                            <span class="text-[9px] font-black text-indigo-600 uppercase">RT: {{ route.round_trip_fee }}</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-500 line-clamp-1 mb-2">{{ route.description }}</p>
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-users text-[10px] text-slate-400"></i>
+                        <span class="text-[10px] font-bold text-slate-400">{{ route.student_count }} Students</span>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-center py-4 text-slate-400 text-xs italic">No routes defined.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Vehicles -->
+        <div class="glass-card">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-black text-slate-800">Fleet</h3>
+                <button onclick="toggleModal('vehicleModal')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <div class="space-y-3">
+                {% for vehicle in vehicles %}
+                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="font-black text-slate-800 text-sm">{{ vehicle.plate_number }}</h4>
+                        <span class="px-2 py-0.5 bg-indigo-100 text-indigo-600 rounded text-[10px] font-black">{{ vehicle.student_count }}/{{ vehicle.capacity }}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-slate-400 shadow-sm border border-slate-100">
+                            <i class="fas fa-user-tie text-xs"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black text-slate-800 uppercase leading-none">{{ vehicle.driver_name }}</p>
+                            <p class="text-[10px] font-bold text-slate-400 tracking-tighter">{{ vehicle.driver_phone }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-center py-4 text-slate-400 text-xs italic">No vehicles in fleet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Route -->
+<div id="routeModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-[2rem] w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div class="p-8">
+            <h3 class="text-2xl font-black text-slate-900 mb-6">New Route</h3>
+            <form method="post" action="{% url 'transport:add-route' %}" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Route Name</label>
+                    <input type="text" name="name" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Description</label>
+                    <textarea name="description" rows="2" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                </div>
+                {% if can_change_school %}
+                <div>
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Assign to School</label>
+                    <select name="school" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-700">
+                        {% for school in schools %}
+                            <option value="{{ school.id }}" {% if selected_school == school.id %}selected{% endif %}>{{ school.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">1 Way Fee</label>
+                        <input type="number" name="one_way_fee" step="0.01" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Round Trip Fee</label>
+                        <input type="number" name="round_trip_fee" step="0.01" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-6">
+                    <button type="button" onclick="toggleModal('routeModal')" class="flex-1 py-3 bg-slate-100 text-slate-600 font-black rounded-xl text-xs uppercase">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-indigo-600 text-white font-black rounded-xl text-xs uppercase shadow-lg shadow-indigo-200">Save Route</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Vehicle -->
+<div id="vehicleModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-[2rem] w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div class="p-8">
+            <h3 class="text-2xl font-black text-slate-900 mb-6">New Vehicle</h3>
+            <form method="post" action="{% url 'transport:add-vehicle' %}" class="space-y-4">
+                {% csrf_token %}
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Plate Number</label>
+                        <input type="text" name="plate_number" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Capacity</label>
+                        <input type="number" name="capacity" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Driver Name</label>
+                    <input type="text" name="driver_name" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Driver Phone</label>
+                    <input type="text" name="driver_phone" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div class="flex gap-3 mt-6">
+                    <button type="button" onclick="toggleModal('vehicleModal')" class="flex-1 py-3 bg-slate-100 text-slate-600 font-black rounded-xl text-xs uppercase">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-indigo-600 text-white font-black rounded-xl text-xs uppercase shadow-lg shadow-indigo-200">Save Vehicle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Assign Student -->
+<div id="assignModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div class="p-8">
+            <h3 class="text-2xl font-black text-slate-900 mb-6">Transport Assignment</h3>
+            <form method="post" action="{% url 'transport:assign-transport' %}?school={{ selected_school|default:'' }}&class={{ selected_class|default:'' }}" class="space-y-4">
+                {% csrf_token %}
+                <div id="student_select_div" class="relative">
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Select Student</label>
+                    
+                    <!-- Hidden input for the form submission -->
+                    <input type="hidden" name="student_id" id="student_id_input" required>
+                    
+                    <!-- Visual Toggle -->
+                    <div id="student_select_toggle" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between cursor-pointer focus:ring-2 focus:ring-indigo-500 outline-none transition-all group" tabindex="0">
+                        <span id="student_select_text" class="text-sm font-medium text-slate-400">Search & Select Student...</span>
+                        <i class="fas fa-chevron-down text-slate-400 text-xs transition-transform duration-200 group-focus:-rotate-180" id="student_select_icon"></i>
+                    </div>
+                    
+                    <!-- Dropdown Panel -->
+                    <div id="student_select_dropdown" class="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden hidden transform origin-top transition-all duration-200 opacity-0 scale-95">
+                        <div class="p-3 border-b border-slate-100 bg-slate-50 relative">
+                            <i class="fas fa-search absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" id="student_search_input" placeholder="Type name or ADM number..." class="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow">
+                        </div>
+                        <ul id="student_options_list" class="max-h-68 overflow-y-auto custom-scrollbar p-2 space-y-1.5">
+                            {% for student in dropdown_students %}
+                            <li class="student-option px-3.5 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-indigo-50 cursor-pointer transition-all flex items-center justify-between gap-4 border border-transparent hover:border-indigo-100 hover:shadow-sm group" 
+                                data-value="{{ student.id }}" 
+                                data-text="{{ student.first_name }} {{ student.last_name }} ({{ student.adm_no }}) - {{ student.studentprofile.class_id.name|default:'Unassigned Stream' }}"
+                                data-search="{{ student.first_name }} {{ student.middle_name }} {{ student.last_name }} {{ student.adm_no }} {{ student.studentprofile.class_id.name }} {{ student.studentprofile.class_id.grade.name }}">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-slate-100/80 group-hover:bg-indigo-100/80 text-slate-500 group-hover:text-indigo-600 flex items-center justify-center shrink-0 uppercase tracking-tighter text-[11px] shadow-sm border border-slate-200 group-hover:border-indigo-200 transition-colors">
+                                        {{ student.first_name|first }}{{ student.last_name|first }}
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="leading-tight text-[15px] group-hover:text-indigo-700 transition-colors">{{ student.first_name }} {{ student.last_name }}</span>
+                                        <div class="flex items-center gap-2 mt-1 hidden sm:flex">
+                                            <span class="text-[10px] text-slate-400 font-bold tracking-widest bg-slate-50 px-2 py-0.5 rounded border border-slate-100 shadow-inner group-hover:border-indigo-100 transition-colors"><i class="fas fa-id-badge mr-1 opacity-70"></i>{{ student.adm_no }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col items-end text-right shrink-0">
+                                    <span class="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1 group-hover:text-indigo-300 transition-colors">Stream / Class</span>
+                                    <span class="px-3 py-1 bg-white border border-slate-200 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm group-hover:border-indigo-200 group-hover:bg-indigo-50/50 group-hover:text-indigo-600 transition-colors max-w-[150px] truncate">
+                                        {{ student.studentprofile.class_id.grade.name|default:"No Grade" }} - {{ student.studentprofile.class_id.name|default:"No Stream" }}
+                                    </span>
+                                </div>
+                            </li>
+                            {% empty %}
+                            <li class="px-3 py-6 text-center">
+                                <i class="fas fa-user-slash text-2xl text-slate-200 mb-2 block"></i>
+                                <span class="text-xs font-bold text-slate-400">No students available.</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        <div id="student_no_results" class="hidden px-3 py-6 text-center border-t border-slate-100">
+                            <i class="fas fa-search-minus text-2xl text-slate-200 mb-2 block"></i>
+                            <span class="text-xs font-bold text-slate-400">No matching students found.</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-2">
+                    <!-- Route -->
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Select Route</label>
+                        <select name="route_id" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                            {% for route in routes %}
+                                <option value="{{ route.id }}">{{ route.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Vehicle -->
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Select Vehicle</label>
+                        <select name="vehicle_id" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="">Unassigned</option>
+                            {% for vehicle in vehicles %}
+                                <option value="{{ vehicle.id }}">{{ vehicle.plate_number }} ({{ vehicle.driver_name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Trip Type -->
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Trip Type</label>
+                        <select name="trip_type" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="round_trip">Round Trip</option>
+                            <option value="one_way">One Way</option>
+                        </select>
+                    </div>
+
+                    <!-- Pickup Point -->
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Pickup Point</label>
+                        <input type="text" name="pickup_point" placeholder="e.g. Near Mall Gate" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <!-- End Date -->
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Subscription End Date</label>
+                        <input type="date" name="end_date" value="{{ active_term.closing_date|date:'Y-m-d' }}" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <!-- Custom Fee -->
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Custom Price <span class="text-slate-400 font-medium normal-case">(Optional Override)</span></label>
+                        <input type="number" name="custom_fee" step="0.01" placeholder="Override standard route fee" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-6 border-t border-slate-100 mt-6">
+                    <button type="button" onclick="toggleModal('assignModal')" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-xs uppercase tracking-widest transition-colors">Cancel</button>
+                    <button type="submit" class="flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs uppercase tracking-widest shadow-lg shadow-indigo-200 transition-all active:scale-[0.98]">Assign Transport</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── Hybrid Student Search Select Logic ─────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const toggle = document.getElementById('student_select_toggle');
+    const dropdown = document.getElementById('student_select_dropdown');
+    const searchInput = document.getElementById('student_search_input');
+    const hiddenInput = document.getElementById('student_id_input');
+    const textDisplay = document.getElementById('student_select_text');
+    const icon = document.getElementById('student_select_icon');
+    const options = document.querySelectorAll('.student-option');
+    const noResults = document.getElementById('student_no_results');
+    const listContainer = document.getElementById('student_options_list');
+
+    let isOpen = false;
+
+    function openDropdown() {
+        isOpen = true;
+        dropdown.classList.remove('hidden');
+        setTimeout(() => {
+            dropdown.classList.remove('opacity-0', 'scale-95');
+            icon.classList.add('rotate-180');
+        }, 10);
+        searchInput.focus();
+        
+        searchInput.value = '';
+        triggerSearch('');
+        
+        // Ensure selected item is into view
+        const active = Array.from(options).find(o => o.classList.contains('bg-indigo-50'));
+        if(active) {
+            active.scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    function closeDropdown() {
+        isOpen = false;
+        dropdown.classList.add('opacity-0', 'scale-95');
+        icon.classList.remove('rotate-180');
+        setTimeout(() => {
+            if(!isOpen) dropdown.classList.add('hidden');
+        }, 200);
+    }
+
+    toggle.addEventListener('click', () => {
+        if (isOpen) closeDropdown();
+        else openDropdown();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!toggle.contains(e.target) && !dropdown.contains(e.target)) {
+            closeDropdown();
+        }
+    });
+
+    function triggerSearch(query) {
+        const queryParts = query.toLowerCase().trim().split(/\s+/).filter(part => part.length > 0);
+        let visibleCount = 0;
+        
+        options.forEach(opt => {
+            if (queryParts.length === 0) {
+                opt.style.display = 'flex';
+                visibleCount++;
+                return;
+            }
+
+            const searchData = opt.getAttribute('data-search').toLowerCase();
+            const matchesAll = queryParts.every(part => searchData.includes(part));
+
+            if (matchesAll) {
+                opt.style.display = 'flex';
+                visibleCount++;
+            } else {
+                opt.style.display = 'none';
+            }
+        });
+
+        if (visibleCount === 0) {
+            noResults.classList.remove('hidden');
+            listContainer.classList.add('hidden');
+        } else {
+            noResults.classList.add('hidden');
+            listContainer.classList.remove('hidden');
+        }
+    }
+
+    searchInput.addEventListener('input', (e) => triggerSearch(e.target.value));
+
+    options.forEach(opt => {
+        opt.addEventListener('click', () => {
+            const val = opt.getAttribute('data-value');
+            const txt = opt.getAttribute('data-text');
+            setStudentSelection(val, txt);
+            closeDropdown();
+        });
+    });
+
+    window.setStudentSelection = function(val, textOverride = null) {
+        hiddenInput.value = val;
+        
+        options.forEach(o => o.classList.remove('bg-indigo-50', 'ring-1', 'ring-indigo-100'));
+        
+        if (val) {
+            const selectedOpt = Array.from(options).find(o => o.getAttribute('data-value') === val);
+            if (selectedOpt) {
+                selectedOpt.classList.add('bg-indigo-50', 'ring-1', 'ring-indigo-100');
+                textDisplay.textContent = textOverride || selectedOpt.getAttribute('data-text');
+                textDisplay.classList.remove('text-slate-400');
+                textDisplay.classList.add('text-slate-900', 'font-bold');
+            }
+        } else {
+            textDisplay.textContent = 'Search & Select Student...';
+            textDisplay.classList.add('text-slate-400');
+            textDisplay.classList.remove('text-slate-900', 'font-bold');
+        }
+    }
+});
+
+function toggleModal(id) {
+    const modal = document.getElementById(id);
+    modal.classList.toggle('hidden');
+}
+
+function openRouteModal(id = null, name = '', desc = '', ow = '', rt = '') {
+    const modal = document.getElementById('routeModal');
+    const form = modal.querySelector('form');
+    const titleEl = modal.querySelector('h3');
+    const submitBtnEl = modal.querySelector('button[type="submit"]');
+    
+    if (id) {
+        titleEl.innerText = 'Edit Route';
+        submitBtnEl.innerText = 'Update Route';
+        form.action = `/transport/route/edit/${id}/`;
+        form.querySelector('[name="name"]').value = name;
+        form.querySelector('[name="description"]').value = desc;
+        form.querySelector('[name="one_way_fee"]').value = ow;
+        form.querySelector('[name="round_trip_fee"]').value = rt;
+    } else {
+        titleEl.innerText = 'New Route';
+        submitBtnEl.innerText = 'Save Route';
+        form.action = "{% url 'transport:add-route' %}";
+        form.reset();
+    }
+    modal.classList.remove('hidden');
+}
+
+function openAssignModal(studentId = '', routeId = '', vehicleId = '', tripType = 'round_trip', pickup = '', customFee = '') {
+    const modal = document.getElementById('assignModal');
+    const form = modal.querySelector('form');
+    const titleEl = modal.querySelector('h3');
+    
+    // Set hybrid search input safely if function exists
+    if(window.setStudentSelection) {
+        window.setStudentSelection(studentId);
+    } else {
+        // Fallback for some reason
+        const hidInput = form.querySelector('[name="student_id"]');
+        if(hidInput) hidInput.value = studentId;
+    }
+
+    form.querySelector('[name="route_id"]').value = routeId;
+    form.querySelector('[name="vehicle_id"]').value = vehicleId;
+    form.querySelector('[name="trip_type"]').value = tripType;
+    form.querySelector('[name="pickup_point"]').value = pickup;
+    form.querySelector('[name="custom_fee"]').value = customFee;
+    
+    if (routeId) {
+        titleEl.innerText = 'Update Assignment';
+    } else {
+        titleEl.innerText = 'Transport Assignment';
+    }
+    
+    modal.classList.remove('hidden');
+}
+</script>
+{% endblock %}

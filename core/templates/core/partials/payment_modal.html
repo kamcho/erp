@@ -1,0 +1,105 @@
+<div class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <!-- Student Profile Header (Modern Card) -->
+    <div class="relative overflow-hidden bg-slate-900 rounded-3xl p-6 text-white shadow-xl">
+        <!-- Abstract Background Decor -->
+        <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16"></div>
+        <div class="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12"></div>
+        
+        <div class="relative z-10 flex items-center gap-5">
+            <div class="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center font-black text-2xl text-white shadow-inner">
+                {{ student.first_name|first }}{{ student.last_name|first }}
+            </div>
+            <div>
+                <h4 class="text-xl font-black tracking-tight leading-none mb-1">{{ student.get_full_name }}</h4>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-indigo-300">ADM: {{ student.adm_no }}</span>
+                    <span class="w-1 h-1 rounded-full bg-white/20"></span>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">{{ student_profile.class_id.name|default:"Unbound" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 pt-6 border-t border-white/10 grid grid-cols-2 gap-8">
+            <div>
+                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Financial Status</p>
+                <p class="text-lg font-black 
+                    {% if student_profile.fee_balance > 0 %}text-rose-400
+                    {% else %}text-emerald-400{% endif %}">
+                    {% if student_profile.fee_balance > 0 %}KES {{ student_profile.fee_balance }}
+                    {% else %}Cleared{% endif %}
+                </p>
+            </div>
+            <div class="text-right">
+                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">School</p>
+                <p class="text-[11px] font-bold text-slate-300 truncate">{{ student_profile.school.name }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Processing Form -->
+    <form id="paymentForm" class="space-y-6">
+        {% csrf_token %}
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+                <label for="{{ form.amount.id_for_label }}" class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                    <i class="fas fa-coins text-indigo-500 text-[10px]"></i>
+                    Amount (KES)
+                </label>
+                {{ form.amount }}
+                {% if form.amount.errors %}
+                    <p class="text-rose-500 text-[10px] font-bold mt-1 ml-1 lowercase tracking-tight">{{ form.amount.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="space-y-2">
+                <label for="{{ form.date_paid.id_for_label }}" class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                    <i class="fas fa-calendar-alt text-indigo-500 text-[10px]"></i>
+                    Payment Date
+                </label>
+                {{ form.date_paid }}
+                {% if form.date_paid.errors %}
+                    <p class="text-rose-500 text-[10px] font-bold mt-1 ml-1 lowercase tracking-tight">{{ form.date_paid.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="space-y-2">
+            <label for="{{ form.method.id_for_label }}" class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                <i class="fas fa-wallet text-indigo-500 text-[10px]"></i>
+                Payment Gateway / Method
+            </label>
+            <div class="relative">
+                {{ form.method }}
+                <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <i class="fas fa-chevron-down text-[10px]"></i>
+                </div>
+            </div>
+            {% if form.method.errors %}
+                <p class="text-rose-500 text-[10px] font-bold mt-1 ml-1 lowercase tracking-tight">{{ form.method.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="space-y-2">
+            <label for="{{ form.reference.id_for_label }}" class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                <i class="fas fa-fingerprint text-indigo-500 text-[10px]"></i>
+                Transaction Reference
+            </label>
+            {{ form.reference }}
+            {% if form.reference.errors %}
+                <p class="text-rose-500 text-[10px] font-bold mt-1 ml-1 lowercase tracking-tight">{{ form.reference.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-3 pt-6">
+            <button type="submit" class="flex-1 h-14 bg-slate-900 border border-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl shadow-slate-200 dark:shadow-none flex items-center justify-center gap-3 group active:scale-95">
+                <span>Confirm Payment</span>
+                <i class="fas fa-arrow-right text-[10px] transform group-hover:translate-x-1 transition-transform"></i>
+            </button>
+            <button type="button" onclick="closePaymentModal()" class="h-14 px-8 bg-slate-50 border border-slate-200 text-slate-500 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-slate-100 hover:text-slate-900 transition-all active:scale-95">
+                Dismiss
+            </button>
+        </div>
+    </form>
+</div>
