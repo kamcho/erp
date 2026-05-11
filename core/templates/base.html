@@ -152,6 +152,10 @@
                     <i class="fas fa-wallet w-5 text-lg opacity-70"></i>
                     <span>Financial Hub</span>
                 </a>
+                <a href="{% url 'accounts:auxiliary-analytics' %}" class="menu-item {% if request.resolver_match.url_name == 'auxiliary-analytics' %}active{% endif %}">
+                    <i class="fas fa-chart-pie w-5 text-lg opacity-70"></i>
+                    <span>Auxiliary Analytics</span>
+                </a>
                
 
                 <a href="{% url 'attendance:late-rules-list' %}" class="menu-item {% if 'late-rules' in request.path %}active{% endif %}">

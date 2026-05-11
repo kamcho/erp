@@ -39,6 +39,7 @@ urlpatterns = [
     path('class/<int:class_id>/bulk-reports/<int:exam_id>/', views.bulk_class_reports, name='bulk-class-reports'),
     path('payments/', views.manage_fee_payments, name='manage-fee-payments'),
     path('payments/process/<int:student_id>/', views.process_payment, name='process-payment'),
+    path('payments/receipt/<int:payment_id>/', views.payment_receipt, name='payment-receipt'),
     path('attendance/<int:class_id>/', views.mark_attendance, name='mark-attendance'),
     path('attendance/<int:class_id>/<str:date>/', views.attendance_detail, name='attendance-detail'),
     path('attendance/data/', views.get_attendance_data, name='get-attendance-data'),
@@ -46,6 +47,7 @@ urlpatterns = [
     path('attendance/notify-late/', views.SendLatenessSMSView.as_view(), name='send-lateness-sms'),
 
     path('ajax/get-school-classes/', views.get_school_classes, name='get-school-classes'),
+    path('ajax/get-school-routes/', views.get_school_routes, name='get-school-routes'),
     path('ajax/fee-structure-preview/', views.fee_structure_preview, name='fee-structure-preview'),
     path('ajax/get-class-exclusion-list/<int:class_id>/<int:exam_id>/', views.get_class_exclusion_list, name='get-class-exclusion-list'),
     path('ajax/update-exclusions/', views.update_exclusions, name='update-exclusions'),

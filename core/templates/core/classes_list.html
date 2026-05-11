@@ -35,14 +35,17 @@
             <span>Sep 11 — Oct 10</span>
         </div>
      
+        {% if user.is_superuser or user.role|lower == 'admin' or user.role|lower == 'receptionist' %}
         <a href="{% url 'core:attendance-analytics' %}" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-2 shadow-lg shadow-indigo-100">
             <i class="fas fa-chart-pie text-indigo-200"></i> Attendance Analytics
         </a>
+        {% endif %}
        
     </div>
 </div>
 
 
+{% if user.is_superuser or user.role|lower == 'admin' or user.role|lower == 'receptionist' %}
 <!-- Top Summary Cards -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
     <!-- Card 1 -->
@@ -105,6 +108,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <!-- Middle Section: Charts/Graphs (3 Columns) -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -171,6 +175,7 @@
         </div>
     </div>
 </div>
+
 
 <!-- Bottom Section: Detailed Lists (2 Columns) -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -403,81 +408,88 @@
         Chart.defaults.color = '#94a3b8';
 
         // 1. Capacity Donut Chart
-        const ctxCap = document.getElementById('capacityChart').getContext('2d');
-        new Chart(ctxCap, {
-            type: 'doughnut',
-            data: {
-                labels: ['Optimal', 'Over', 'Under'],
-                datasets: [{
-                    data: [
-                        {{ capacity_optimal|default:"0" }}, 
-                        {{ capacity_over|default:"0" }}, 
-                        {{ capacity_under|default:"0" }}
-                    ],
-                    backgroundColor: ['#6366f1', '#ef4444', '#f59e0b'],
-                    borderWidth: 6,
-                    borderColor: '#fff',
-                    hoverOffset: 4,
-                    cutout: '80%'
-                }]
-            },
-            options: {
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
-            }
-        });
+        const capacityChartEl = document.getElementById('capacityChart');
+        if (capacityChartEl) {
+            const ctxCap = capacityChartEl.getContext('2d');
+            new Chart(ctxCap, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Optimal', 'Over', 'Under'],
+                    datasets: [{
+                        data: [
+                            {{ capacity_optimal|default:"0" }}, 
+                            {{ capacity_over|default:"0" }}, 
+                            {{ capacity_under|default:"0" }}
+                        ],
+                        backgroundColor: ['#6366f1', '#ef4444', '#f59e0b'],
+                        borderWidth: 6,
+                        borderColor: '#fff',
+                        hoverOffset: 4,
+                        cutout: '80%'
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
 
         // 2. Attendance Bar Chart
-        const ctxAtt = document.getElementById('attendanceChart').getContext('2d');
-        const attLabels = {{ school_attendance_labels|safe|default:"[]" }};
-        const attPresent = {{ school_attendance_present|safe|default:"[]" }};
-        const attAbsent = {{ school_attendance_absent|safe|default:"[]" }};
-        const attLate = {{ school_attendance_late|safe|default:"[]" }};
+        const attendanceChartEl = document.getElementById('attendanceChart');
+        if (attendanceChartEl) {
+            const ctxAtt = attendanceChartEl.getContext('2d');
+            const attLabels = {{ school_attendance_labels|safe|default:"[]" }};
+            const attPresent = {{ school_attendance_present|safe|default:"[]" }};
+            const attAbsent = {{ school_attendance_absent|safe|default:"[]" }};
+            const attLate = {{ school_attendance_late|safe|default:"[]" }};
 
-        new Chart(ctxAtt, {
-            type: 'bar',
-            data: {
-                labels: attLabels,
-                datasets: [
-                    {
-                        label: 'Present',
-                        data: attPresent,
-                        backgroundColor: '#6366f1',
-                        barThickness: 8,
-                        borderRadius: 4
-                    },
-                    {
-                        label: 'Absent',
-                        data: attAbsent,
-                        backgroundColor: '#f59e0b',
-                        barThickness: 8,
-                        borderRadius: 4
-                    },
-                    {
-                        label: 'Late/Excused',
-                        data: attLate,
-                        backgroundColor: '#ef4444',
-                        barThickness: 8,
-                        borderRadius: 4
-                    }
-                ]
-            },
-            options: {
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
-                    y: { 
-                        stacked: true, 
-                        grid: { color: '#f1f5f9', drawBorder: false }, 
-                        ticks: { 
-                            font: { size: 10 },
-                            beginAtZero: true
+            new Chart(ctxAtt, {
+                type: 'bar',
+                data: {
+                    labels: attLabels,
+                    datasets: [
+                        {
+                            label: 'Present',
+                            data: attPresent,
+                            backgroundColor: '#6366f1',
+                            barThickness: 8,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Absent',
+                            data: attAbsent,
+                            backgroundColor: '#f59e0b',
+                            barThickness: 8,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Late/Excused',
+                            data: attLate,
+                            backgroundColor: '#ef4444',
+                            barThickness: 8,
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
+                        y: { 
+                            stacked: true, 
+                            grid: { color: '#f1f5f9', drawBorder: false }, 
+                            ticks: { 
+                                font: { size: 10 },
+                                beginAtZero: true
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+        }
+
     });
 
     function toggleMoreClasses() {

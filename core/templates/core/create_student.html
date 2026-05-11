@@ -200,38 +200,17 @@
                 </div>
             </div>
 
-            <!-- Additional Charges -->
-            <div class="mt-8 p-6 bg-white/60 dark:bg-slate-900/30 rounded-[2rem] border border-slate-100 dark:border-slate-800">
-                <div class="flex items-center justify-between mb-4">
-                    <div>
-                        <h3 class="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-widest">Additional Charges</h3>
-                        <p class="text-[10px] font-bold text-slate-400 mt-1">Select any extra charges to apply on enrollment (staff discount does not apply).</p>
-                    </div>
-                </div>
-
-                <div id="additional-charges-list" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <!-- Additional Charges (Background/Automatic) -->
+            <div id="additional-charges-section" class="hidden">
+                <div id="additional-charges-list">
                     {% for ch in additional_charges %}
-                    <label class="additional-charge-item flex items-start gap-3 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/30"
-                           data-school-id="{{ ch.school_id }}">
-                        <input type="checkbox" name="additional_charge_ids" value="{{ ch.id }}" class="mt-1 w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 transition-all cursor-pointer">
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between gap-3">
-                                <p class="text-[12px] font-black text-slate-800 dark:text-white">{{ ch.name }}</p>
-                                <span class="text-[11px] font-black text-indigo-600 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-1 rounded-xl">KES {{ ch.amount }}</span>
-                            </div>
-                            <p class="text-[10px] font-bold text-slate-400 mt-1">School: {{ ch.school.name }}</p>
-                        </div>
-                    </label>
-                    {% empty %}
-                    <div class="p-6 text-center text-[11px] font-bold text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                        No additional charges configured.
+                    <div class="additional-charge-item" 
+                         data-school-id="{{ ch.school_id }}"
+                         data-amount="{{ ch.amount }}"
+                         data-grades="{% for g in ch.grades.all %}{{ g.id }}{% if not forloop.last %},{% endif %}{% endfor %}">
                     </div>
                     {% endfor %}
                 </div>
-
-                <p class="mt-3 text-[10px] font-bold text-slate-400 italic">
-                    Charges shown will be filtered by school once you select a school. If you pick a charge that doesn't match the student's grade/school, it will be ignored.
-                </p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -239,7 +218,7 @@
                 <div class="space-y-2 p-5 bg-emerald-50 dark:bg-emerald-500/5 rounded-3xl border border-emerald-100 dark:border-emerald-500/20">
                     <div class="flex items-center gap-2 mb-2">
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                        <label class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{{ profile_form.fee_balance.label }}</label>
+                        <label class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Total Enrollment Invoice Summary</label>
                     </div>
                     <div class="relative">
                         <span class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-emerald-600 text-sm">KES</span>
@@ -249,7 +228,7 @@
                         </style>
                         {{ profile_form.fee_balance }}
                     </div>
-                    <p class="text-[9px] font-bold text-slate-400 italic">Optional: previous term arrears carried forward (today’s term fee is invoiced automatically).</p>
+                    <p class="text-[9px] font-bold text-slate-400 italic">This is the total amount that will be invoiced upon finalizing enrollment. You can manually adjust this if there are previous arrears or special discounts.</p>
                     {% if profile_form.fee_balance.errors %}
                         <p class="text-[10px] text-rose-500 font-bold mt-1 ml-1">{{ profile_form.fee_balance.errors.0 }}</p>
                     {% endif %}
@@ -282,6 +261,85 @@
                     <!-- Keep discipline in the form, but hide it (defaults to 100) -->
                     <div class="hidden">
                         {{ profile_form.discipline }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transport Services (Conditional) -->
+        <div id="transport-section" class="glass-card shadow-xl shadow-indigo-500/5 hover:shadow-indigo-500/10 transition-all duration-500 border-t-4 border-t-amber-500 mt-8 hidden">
+            <div class="flex items-center gap-4 mb-8 border-b border-slate-100 dark:border-slate-800 pb-6">
+                <div class="w-12 h-12 bg-amber-50 dark:bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-inner">
+                    <i class="fas fa-bus text-xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">Transport Services</h2>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Manage school bus assignments for day students</p>
+                </div>
+            </div>
+
+            <div class="p-5 bg-amber-50/50 dark:bg-amber-500/5 rounded-3xl border border-amber-100 dark:border-amber-500/20 mb-6">
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center h-5">
+                        <input id="use_transport" name="use_transport" type="checkbox" class="w-6 h-6 text-amber-600 border-slate-300 rounded-lg focus:ring-amber-500 cursor-pointer transition-all">
+                    </div>
+                    <div>
+                        <label for="use_transport" class="text-sm font-black text-slate-800 dark:text-white cursor-pointer">Enable Transport for this Student</label>
+                        <p class="text-[10px] font-bold text-slate-500 mt-0.5">If checked, a transport assignment and invoice will be created upon enrollment.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="transport-fields" class="space-y-6 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Route Selection -->
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Select Route</label>
+                        <select id="transport_route_select" name="route_id" class="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium focus:border-amber-500 outline-none transition-colors appearance-none cursor-pointer">
+                            <option value="">-- Loading Routes --</option>
+                        </select>
+                    </div>
+
+                    <!-- Trip Type -->
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Trip Type</label>
+                        <select id="transport_trip_type" name="trip_type" class="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium focus:border-amber-500 outline-none transition-colors appearance-none cursor-pointer">
+                            <option value="round_trip">Round Trip</option>
+                            <option value="one_way">One Way</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Vehicle -->
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Assign Vehicle (Optional)</label>
+                        <select name="vehicle_id" class="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium focus:border-amber-500 outline-none transition-colors appearance-none cursor-pointer">
+                            <option value="">Unassigned</option>
+                            {% for v in vehicles %}
+                                <option value="{{ v.id }}">{{ v.plate_number }} ({{ v.driver_name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Pickup Point -->
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Pickup Point</label>
+                        <input type="text" name="pickup_point" placeholder="e.g. Near Mall Gate" class="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium focus:border-amber-500 outline-none transition-colors">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Custom Fee -->
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Custom Fee (Override)</label>
+                        <input type="number" id="transport_custom_fee" name="custom_fee" step="0.01" placeholder="Leave blank for standard route fee" class="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium focus:border-amber-500 outline-none transition-colors">
+                    </div>
+
+                    <!-- End Date -->
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Subscription End Date</label>
+                        <input type="date" name="transport_end_date" class="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium focus:border-amber-500 outline-none transition-colors">
                     </div>
                 </div>
             </div>
@@ -561,18 +619,42 @@
         // 2. Admission Fee
         const admissionFee = parseFloat(admissionFeeVal.textContent) || 0;
         
-        // 3. Additional Charges
+        // 3. Additional Charges (Automatic based on school/grade)
         let additionalTotal = 0;
-        document.querySelectorAll('input[name="additional_charge_ids"]:checked').forEach(cb => {
-            const amountSpan = cb.closest('label').querySelector('span');
-            if (amountSpan) {
-                const val = amountSpan.textContent.replace('KES', '').trim();
-                additionalTotal += parseFloat(val) || 0;
+        const schoolId = schoolSelect.value;
+        const selectedOption = classSelect.options[classSelect.selectedIndex];
+        const gradeId = selectedOption ? selectedOption.getAttribute('data-grade-id') : null;
+
+        document.querySelectorAll('.additional-charge-item').forEach(el => {
+            const elSchool = el.getAttribute('data-school-id');
+            const elGrades = el.getAttribute('data-grades').split(',');
+            
+            if (schoolId && elSchool === schoolId && gradeId && elGrades.includes(gradeId)) {
+                additionalTotal += parseFloat(el.getAttribute('data-amount')) || 0;
             }
         });
 
-        // Sum them up
-        const total = termFee + admissionFee + additionalTotal;
+        // 4. Transport Fee
+        let transportTotal = 0;
+        const useTransportCb = document.getElementById('use_transport');
+        if (useTransportCb && useTransportCb.checked) {
+            const customFee = parseFloat(document.getElementById('transport_custom_fee').value);
+            if (!isNaN(customFee) && customFee > 0) {
+                transportTotal = customFee;
+            } else {
+                const routeSelect = document.getElementById('transport_route_select');
+                const selectedOption = routeSelect.options[routeSelect.selectedIndex];
+                if (selectedOption && selectedOption.value) {
+                    const tripType = document.getElementById('transport_trip_type').value;
+                    const ow = parseFloat(selectedOption.getAttribute('data-ow')) || 0;
+                    const rt = parseFloat(selectedOption.getAttribute('data-rt')) || 0;
+                    transportTotal = (tripType === 'one_way') ? ow : rt;
+                }
+            }
+        }
+
+        // Sum them up and round to nearest integer
+        const total = Math.round(termFee + admissionFee + additionalTotal + transportTotal);
         balanceInput.value = total;
     }
 
@@ -653,6 +735,7 @@
                         const option = document.createElement('option');
                         option.value = cls.id;
                         option.textContent = cls.name;
+                        option.setAttribute('data-grade-id', cls.grade_id); // Ensure we have grade_id
                         classSelect.appendChild(option);
                     });
 
@@ -682,7 +765,79 @@
         cb.addEventListener('change', refreshTotalBalance);
     });
 
+    // Transport Logic
+    const transportSection = document.getElementById('transport-section');
+    const transportFields = document.getElementById('transport-fields');
+    const useTransportCb = document.getElementById('use_transport');
+    const routeSelect = document.getElementById('transport_route_select');
+
+    function toggleTransportSection() {
+        const category = categorySelect.value;
+        if (category === 'day' || category === 'staff_day') {
+            transportSection.classList.remove('hidden');
+        } else {
+            transportSection.classList.add('hidden');
+            useTransportCb.checked = false;
+            transportFields.classList.add('hidden');
+        }
+        refreshTotalBalance();
+    }
+
+    if (useTransportCb) {
+        useTransportCb.addEventListener('change', function() {
+            if (this.checked) {
+                transportFields.classList.remove('hidden');
+            } else {
+                transportFields.classList.add('hidden');
+            }
+            refreshTotalBalance();
+        });
+    }
+
+    async function refreshRoutes() {
+        if (!schoolSelect || !routeSelect) return;
+        const schoolId = schoolSelect.value;
+        
+        routeSelect.innerHTML = '<option value="">-- Loading Routes --</option>';
+        
+        if (!schoolId) {
+            routeSelect.innerHTML = '<option value="">-- Select School First --</option>';
+            return;
+        }
+
+        try {
+            const res = await fetch(`{% url "core:get-school-routes" %}?school_id=${schoolId}`);
+            const data = await res.json();
+            
+            routeSelect.innerHTML = '<option value="">-- Select Route --</option>';
+            data.routes.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r.id;
+                opt.textContent = `${r.name} (KES ${r.rt_fee} RT)`;
+                opt.setAttribute('data-ow', r.ow_fee);
+                opt.setAttribute('data-rt', r.rt_fee);
+                routeSelect.appendChild(opt);
+            });
+        } catch (e) {
+            routeSelect.innerHTML = '<option value="">-- Error Loading Routes --</option>';
+        }
+    }
+
+    if (schoolSelect) {
+        schoolSelect.addEventListener('change', refreshRoutes);
+    }
+    if (categorySelect) {
+        categorySelect.addEventListener('change', toggleTransportSection);
+    }
+    if (routeSelect) {
+        routeSelect.addEventListener('change', refreshTotalBalance);
+    }
+    document.getElementById('transport_trip_type').addEventListener('change', refreshTotalBalance);
+    document.getElementById('transport_custom_fee').addEventListener('input', refreshTotalBalance);
+
     // Initial check
+    toggleTransportSection();
+    refreshRoutes();
     refreshTotalBalance();
 </script>
 {% endblock %}

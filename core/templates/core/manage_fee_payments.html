@@ -301,8 +301,10 @@ document.addEventListener('submit', function(e) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Show success message
-                showNotification(data.message, 'success');
+                // Show success message with a print button
+                const printUrl = `/payments/receipt/${data.payment_id}/`;
+                const successMsg = `${data.message}. <a href="${printUrl}" target="_blank" class="ml-2 underline font-black">Print Receipt</a>`;
+                showNotification(successMsg, 'success', true);
                 
                 // Update the student's balance in the table
                 updateStudentBalance(currentStudentId, data.new_balance);
@@ -310,10 +312,13 @@ document.addEventListener('submit', function(e) {
                 // Close modal
                 closePaymentModal();
                 
-                // Reload page after a short delay to show updated data
+                // Optional: Automatically open receipt in new tab
+                window.open(printUrl, '_blank');
+
+                // Reload page after a delay
                 setTimeout(() => {
                     window.location.reload();
-                }, 1500);
+                }, 3000);
             } else {
                 // Show error message
                 showNotification(data.error || 'Error processing payment', 'error');
@@ -330,10 +335,10 @@ document.addEventListener('submit', function(e) {
     }
 });
 
-function showNotification(message, type) {
+function showNotification(message, type, persistent = false) {
     // Create notification element
     const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 px-6 py-4 rounded-xl shadow-lg z-50 flex items-center gap-3 ${
+    notification.className = `fixed top-4 right-4 px-6 py-4 rounded-xl shadow-lg z-[100] flex items-center gap-3 animate-slide-in ${
         type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
     }`;
     notification.innerHTML = `
@@ -343,10 +348,13 @@ function showNotification(message, type) {
     
     document.body.appendChild(notification);
     
-    // Remove after 3 seconds
+    // Remove after 3 seconds, or 10 seconds if persistent
+    const duration = persistent ? 10000 : 3000;
     setTimeout(() => {
-        notification.remove();
-    }, 3000);
+        notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.5s ease';
+        setTimeout(() => notification.remove(), 500);
+    }, duration);
 }
 
 function updateStudentBalance(studentId, newBalance) {

@@ -1,0 +1,180 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Receipt - {{ student.get_full_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+
+        @media print {
+            @page {
+                size: A5 landscape;
+                margin: 0;
+            }
+            body { 
+                background-color: white; 
+                margin: 0; 
+                padding: 0; 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact;
+            }
+            .no-print { display: none !important; }
+            .receipt-container { 
+                box-shadow: none !important; 
+                margin: 0 !important; 
+                padding: 1cm !important;
+                width: 100% !important;
+                border: none !important;
+            }
+        }
+
+        .receipt-container {
+            max-width: 800px;
+            margin: 40px auto;
+            background: white;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .receipt-container::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 8px;
+            background: linear-gradient(to right, #4f46e5, #06b6d4);
+        }
+
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 8rem;
+            font-weight: 900;
+            color: rgba(0, 0, 0, 0.03);
+            pointer-events: none;
+            white-space: nowrap;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    
+    <!-- Controls -->
+    <div class="no-print max-w-[800px] mx-auto mb-6 flex justify-between items-center">
+        <button onclick="window.close()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-bold transition-all flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Close Window
+        </button>
+        <button onclick="window.print()" class="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            PRINT RECEIPT
+        </button>
+    </div>
+
+    <div class="receipt-container">
+        <div class="watermark uppercase">OFFICIAL RECEIPT</div>
+        
+        <!-- Header -->
+        <div class="flex justify-between items-start mb-10">
+            <div class="flex items-center gap-4">
+                <div class="w-16 h-16 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center overflow-hidden">
+                    {% if school.logo %}
+                        <img src="{{ school.logo.url }}" alt="Logo" class="w-full h-full object-contain p-2">
+                    {% else %}
+                        <div class="w-full h-full flex items-center justify-center bg-indigo-50">
+                            <span class="text-2xl font-black text-indigo-600">EX</span>
+                        </div>
+                    {% endif %}
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-slate-900 leading-tight uppercase">{{ school.name|default:"Excel Academy" }}</h1>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">Payment Confirmation</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <div class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Receipt No</div>
+                <div class="text-lg font-black text-indigo-600 tracking-tighter">#{{ payment.id|stringformat:"05d" }}</div>
+            </div>
+        </div>
+
+        <!-- Student & Date Info -->
+        <div class="grid grid-cols-2 gap-8 mb-10 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+            <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Student Information</p>
+                <h2 class="text-lg font-black text-slate-900">{{ student.get_full_name }}</h2>
+                <p class="text-xs font-bold text-slate-500 mt-1 uppercase">ADM: {{ student.adm_no }} • {{ profile.class_id.name }}</p>
+            </div>
+            <div class="text-right">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Date Recorded</p>
+                <h2 class="text-lg font-black text-slate-900">{{ payment.date_paid|date:"D, jS M Y" }}</h2>
+                <p class="text-xs font-bold text-slate-500 mt-1 uppercase">Method: {{ payment.method }}</p>
+            </div>
+        </div>
+
+        <!-- Payment Details Table -->
+        <div class="mb-10">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-slate-100">
+                        <th class="py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</th>
+                        <th class="py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Ref / Transaction ID</th>
+                        <th class="py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount Paid</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    <tr>
+                        <td class="py-6">
+                            <span class="text-sm font-black text-slate-800 uppercase">Fee Payment</span>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase mt-1">Academic Fee Installment</p>
+                        </td>
+                        <td class="py-6 text-center font-bold text-slate-600 text-sm">
+                            {{ payment.reference|default:"CASH_PAYMENT" }}
+                        </td>
+                        <td class="py-6 text-right font-black text-slate-900 text-lg">
+                            KES {{ payment.amount }}
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="border-t-2 border-slate-900">
+                        <td colspan="2" class="py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Outstanding Fee Balance</td>
+                        <td class="py-4 text-right font-black text-rose-600 text-xl">KES {{ profile.fee_balance }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-between items-end gap-12 pt-6 border-t border-slate-100 mt-12">
+            <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Recorded By</p>
+                <div class="border-b border-slate-300 w-48 mb-2"></div>
+                <p class="text-xs font-black text-slate-800 uppercase">{{ payment.recorded_by.get_full_name }}</p>
+            </div>
+            <div class="text-right">
+                <p class="text-[10px] font-bold text-slate-400 italic mb-1">Generated on {{ today|date:"jS M Y, H:i" }}</p>
+                <p class="text-[10px] font-black text-indigo-600 uppercase tracking-tighter">This is a system generated document.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -39,4 +39,5 @@ urlpatterns = [
     path('auxiliary/bulk-invoice/', views.bulk_auxiliary_invoice, name='bulk-auxiliary-invoice'),
     path('auxiliary/charges/', views.auxiliary_charges_list, name='auxiliary-charges-list'),
     path('auxiliary/record-payment/', views.record_auxiliary_payment, name='record-auxiliary-payment'),
+    path('auxiliary/analytics/', views.AuxiliaryAnalyticsView.as_view(), name='auxiliary-analytics'),
 ]

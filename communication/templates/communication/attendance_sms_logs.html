@@ -7,9 +7,11 @@
 <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
     <div>
         <div class="flex items-center gap-3 mb-1">
+            {% if user.is_superuser or user.role|lower == 'admin' or user.role|lower == 'receptionist' %}
             <a href="{% url 'core:attendance-analytics' %}" class="text-indigo-600 hover:text-indigo-800 transition-colors">
                 <i class="fas fa-arrow-left text-sm"></i>
             </a>
+            {% endif %}
             <h1 class="text-xl md:text-[26px] font-black text-slate-900 tracking-tight">Attendance Notification Logs</h1>
         </div>
         <p class="text-[14px] text-slate-500 font-medium">Track and resend SMS notifications for student attendance.</p>

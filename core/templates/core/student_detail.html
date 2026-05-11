@@ -615,6 +615,11 @@
                             <td class="px-6 py-3 text-[11px] font-bold text-slate-500 tabular-nums w-28">{{ item.date|date:"d/m/Y" }}</td>
                             <td class="px-4 py-3 text-[11px] font-bold text-slate-500 w-32">
                                 {{ item.reference }}
+                                {% if item.type == 'payment' %}
+                                <a href="{% url 'core:payment-receipt' item.payment_id %}" target="_blank" class="ml-2 text-indigo-600 hover:text-indigo-800" title="Print Receipt">
+                                    <i class="fas fa-print"></i>
+                                </a>
+                                {% endif %}
                             </td>
                             <td class="px-4 py-3">
                                 <span class="text-[11px] font-bold text-slate-700">{{ item.description }}</span>

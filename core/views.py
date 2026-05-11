@@ -1003,12 +1003,11 @@ def create_student(request):
                     description="Admission Fee",
                 )
 
-            # Auto-invoice current term fee based on configured fee structure
-            from accounts.models import FeeStructure
-            from core.models import Term
-            from decimal import Decimal
-            from django.db.models import Q
+            # Define active period
+            from core.models import Term, AcademicYear
             active_term = Term.objects.filter(is_active=True).first()
+            active_year = AcademicYear.objects.filter(is_active=True).first()
+
             if not active_term:
                 messages.warning(request, "No active term is set. Term fees were not invoiced on enrollment.")
             elif not profile.class_id:
@@ -1025,7 +1024,7 @@ def create_student(request):
 
                 if fee_structure:
                     multiplier = Decimal(str(student.get_fee_multiplier()))
-                    term_amount = (Decimal(str(fee_structure.amount)) * multiplier).quantize(Decimal('1.00'))
+                    term_amount = (Decimal(str(fee_structure.amount)) * multiplier).quantize(Decimal('1'), rounding='ROUND_HALF_UP')
                     if term_amount > 0 and not Invoice.objects.filter(student=student, fee_structure=fee_structure).exists():
                         Invoice.objects.create(
                             student=student,
@@ -1038,15 +1037,16 @@ def create_student(request):
                         "No fee structure found for the selected school/grade/type in the active term. Term fees were not invoiced."
                     )
 
-            # Optional additional charges at enrollment (full amounts; no staff discount)
+            # 3. Automatic additional charges at enrollment (based on grade/school)
             from accounts.models import AdditionalCharges
-            charge_ids = request.POST.getlist('additional_charge_ids')
-            if charge_ids:
-                charges = AdditionalCharges.objects.filter(
-                    id__in=charge_ids,
-                    school=profile.school,
-                    grades=profile.class_id.grade if profile.class_id else None,
-                ).distinct()
+            charges = AdditionalCharges.objects.filter(
+                school=profile.school,
+                grades=profile.class_id.grade if profile.class_id else None,
+            ).distinct()
+            
+            charge_ids = [str(ch.id) for ch in charges] # For the total calculation below
+            
+            if charges.exists():
                 for ch in charges:
                     Invoice.objects.create(
                         student=student,
@@ -1054,7 +1054,37 @@ def create_student(request):
                         description=f"Additional Charge: {ch.name}",
                     )
 
-            # 4. Calculate Adjustment vs the "Opening Balance" target the user entered in the form
+            # 4. Transport Assignment
+            transport_fee = 0
+            if student.fee_category in ('day', 'staff_day') and request.POST.get('use_transport') == 'on':
+                from transport.models import Route, Vehicle, TransportAssignment
+                route_id = request.POST.get('route_id')
+                if route_id:
+                    assignment_route = Route.objects.filter(id=route_id).first()
+                    if assignment_route:
+                        vehicle_id = request.POST.get('vehicle_id')
+                        assignment_vehicle = Vehicle.objects.filter(id=vehicle_id).first() if vehicle_id else None
+                        
+                        custom_fee = request.POST.get('custom_fee')
+                        if custom_fee:
+                            transport_fee = Decimal(str(custom_fee)).quantize(Decimal('1'), rounding='ROUND_HALF_UP')
+                        else:
+                            raw_fee = assignment_route.one_way_fee if request.POST.get('trip_type') == 'one_way' else assignment_route.round_trip_fee
+                            transport_fee = Decimal(str(raw_fee)).quantize(Decimal('1'), rounding='ROUND_HALF_UP')
+
+                        TransportAssignment.objects.create(
+                            student=student,
+                            academic_year=active_year,
+                            term=active_term,
+                            route=assignment_route,
+                            vehicle=assignment_vehicle,
+                            trip_type=request.POST.get('trip_type', 'round_trip'),
+                            pickup_point=request.POST.get('pickup_point'),
+                            custom_fee=custom_fee or None,
+                            end_date=request.POST.get('transport_end_date') or (active_term.closing_date if active_term else None),
+                        )
+
+            # 5. Calculate Adjustment vs the "Opening Balance" target the user entered in the form
             # Because the Term/Admission/Additional invoices created above INCREASE the profile balance (due to Invoice.save),
             # we need to create an "Adjustment" invoice for whatever is left over from initial_balance.
             total_auto_invoiced = 0
@@ -1069,8 +1099,11 @@ def create_student(request):
                 pass
             
             # Additional Charges
-            if charge_ids:
-                total_auto_invoiced += sum(int(ch.amount) for ch in charges)
+            if charges.exists():
+                total_auto_invoiced += sum(int(Decimal(str(ch.amount)).quantize(Decimal('1'), rounding='ROUND_HALF_UP')) for ch in charges)
+
+            # Transport
+            total_auto_invoiced += int(transport_fee)
 
             # The final Adjustment (could be + arrears or - discount)
             adjustment = initial_balance - total_auto_invoiced
@@ -1127,6 +1160,7 @@ def create_student(request):
                         )
 
 
+
             messages.success(request, f'Student {student.first_name} {student.last_name} has been enrolled successfully!')
             from core.activity_log import log_activity
             log_activity(request.user, 'Enrolled', 'Student', f'Enrolled student {student.get_full_name()} (ADM: {student.adm_no})', 'Student', student.pk)
@@ -1142,13 +1176,15 @@ def create_student(request):
     except Exception:
         admission_fee_default = 0
     admission_fee_max = admission_fee_default if admission_fee_default > 0 else 50000
+    from transport.models import Vehicle
     context = {
         'student_form': student_form,
         'profile_form': profile_form,
-        'additional_charges': AdditionalCharges.objects.select_related('school').all(),
+        'additional_charges': AdditionalCharges.objects.select_related('school').prefetch_related('grades').all(),
         'default_admission_fee': default_admission_fee,
         'admission_fee_default': admission_fee_default,
         'admission_fee_max': admission_fee_max,
+        'vehicles': Vehicle.objects.all(),
     }
     from users.models import MyUser
     context['guardians'] = MyUser.objects.all().order_by('first_name')
@@ -1223,10 +1259,30 @@ def get_school_classes(request):
     
     classes = Class.objects.filter(school_id=school_id).select_related('grade')
     data = [
-        {'id': c.id, 'name': f"{c.name} ({c.grade.name})"} 
+        {'id': c.id, 'name': f"{c.name} ({c.grade.name})", 'grade_id': str(c.grade.id)} 
         for c in classes
     ]
     return JsonResponse({'classes': data})
+
+
+@login_required
+def get_school_routes(request):
+    school_id = request.GET.get('school_id')
+    if not school_id:
+        return JsonResponse({'routes': []})
+    
+    from transport.models import Route
+    routes = Route.objects.filter(school_id=school_id)
+    data = [
+        {
+            'id': r.id, 
+            'name': r.name, 
+            'ow_fee': str(r.one_way_fee), 
+            'rt_fee': str(r.round_trip_fee)
+        } 
+        for r in routes
+    ]
+    return JsonResponse({'routes': data})
 
 @login_required
 def fee_structure_preview(request):
@@ -1267,7 +1323,7 @@ def fee_structure_preview(request):
     if not fs:
         return JsonResponse({'found': False, 'reason': 'No matching fee structure'}, status=200)
 
-    amount = (Decimal(str(fs.amount)) * multiplier).quantize(Decimal('1.00'))
+    amount = (Decimal(str(fs.amount)) * multiplier).quantize(Decimal('1'), rounding='ROUND_HALF_UP')
     return JsonResponse({
         'found': True,
         'term': active_term.name,
@@ -1630,6 +1686,7 @@ class StudentDetailView(DetailView):
 
             all_transactions.append({
                 'type': 'payment',
+                'payment_id': pay.id,
                 'description': f"{pay.get_method_display()} Payment" if hasattr(pay, 'get_method_display') else "Fee Payment",
                 'amount': pay.amount,
                 'date': pay.date_paid,
@@ -3565,12 +3622,12 @@ def process_payment(request, student_id):
                 messages.success(request, f'Payment of {payment.amount} recorded successfully for {student.first_name} {student.last_name}')
                 from core.activity_log import log_activity
                 log_activity(request.user, 'Recorded', 'Finance', f'Recorded payment of KES {payment.amount} for {student.get_full_name()} via {payment.method}', 'Payment', payment.pk)
-                
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({
                         'success': True,
                         'message': f'Payment of {payment.amount} recorded successfully',
-                        'new_balance': student_profile.fee_balance
+                        'new_balance': student_profile.fee_balance,
+                        'payment_id': payment.id
                     })
                     
             except Exception as e:
@@ -3593,6 +3650,22 @@ def process_payment(request, student_id):
         return render(request, 'core/partials/payment_modal.html', context)
     
     return redirect('core:manage-fee-payments')
+
+
+@login_required
+def payment_receipt(request, payment_id):
+    payment = get_object_or_404(Payment, id=payment_id)
+    student_profile = get_object_or_404(StudentProfile, student=payment.student)
+    school = student_profile.school
+    
+    context = {
+        'payment': payment,
+        'student': payment.student,
+        'profile': student_profile,
+        'school': school,
+        'today': timezone.now(),
+    }
+    return render(request, 'core/payment_receipt.html', context)
 
 
 def get_comparative_trend_data(subject, current_class, historical_exams):
@@ -5829,7 +5902,7 @@ def expenses_list(request):
         'chart_outflow_data': json.dumps(outflow_series),
         'chart_inflow_data': json.dumps(inflow_series),
     }
-    return render(request, 'core/logs_list.html', context)
+    return render(request, 'core/expenses_list.html', context)
 
 
 @login_required

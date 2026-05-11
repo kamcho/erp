@@ -1561,4 +1561,109 @@ def record_auxiliary_payment(request):
         messages.success(request, f"Auxiliary payment of KES {amount} recorded successfully.")
         return redirect(request.META.get('HTTP_REFERER', '/'))
 
-    return redirect('/')
+    return redirect('/')
+
+class AuxiliaryAnalyticsView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    template_name = 'accounts/auxiliary_analytics.html'
+
+    def test_func(self):
+        return self.request.user.role in ['Admin', 'Accountant', 'Receptionist'] or self.request.user.is_superuser
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from .models import AuxiliaryCharge, AuxiliaryPayment, AuxiliaryServiceType
+        from core.models import Grade, School
+
+        # 1. Filters from GET request
+        school_id = self.request.GET.get('school')
+        grade_id = self.request.GET.get('grade')
+        service_id = self.request.GET.get('service')
+        date_from = self.request.GET.get('date_from')
+        date_to = self.request.GET.get('date_to')
+
+        # 2. Base Querysets
+        charges = AuxiliaryCharge.objects.all().select_related('student', 'service_type', 'term', 'academic_year')
+        payments = AuxiliaryPayment.objects.all().select_related('student', 'recorded_by')
+
+        # 3. Apply Filters
+        if school_id:
+            charges = charges.filter(student__studentprofile__school_id=school_id)
+            payments = payments.filter(student__studentprofile__school_id=school_id)
+        if grade_id:
+            charges = charges.filter(student__studentprofile__class_id__grade_id=grade_id)
+            payments = payments.filter(student__studentprofile__class_id__grade_id=grade_id)
+        if service_id:
+            charges = charges.filter(service_type_id=service_id)
+        if date_from:
+            charges = charges.filter(created_at__date__gte=date_from)
+            payments = payments.filter(date_paid__gte=date_from)
+        if date_to:
+            charges = charges.filter(created_at__date__lte=date_to)
+            payments = payments.filter(date_paid__lte=date_to)
+
+        # 4. Aggregates
+        total_charged = charges.aggregate(Sum('amount'))['amount__sum'] or 0
+        total_paid = payments.aggregate(Sum('amount'))['amount__sum'] or 0
+        outstanding = total_charged - total_paid
+        collection_rate = (float(total_paid) / float(total_charged) * 100) if total_charged > 0 else 0
+
+        context.update({
+            'total_charged': total_charged,
+            'total_paid': total_paid,
+            'outstanding': outstanding,
+            'collection_rate': round(collection_rate, 1),
+            'charge_count': charges.count(),
+            'payment_count': payments.count(),
+        })
+
+        # 5. Chart 1: Distribution by Service Type
+        service_stats = []
+        for service in AuxiliaryServiceType.objects.all():
+            if school_id and str(service.school_id) != school_id:
+                continue
+            
+            s_charges = charges.filter(service_type=service)
+            s_amount = s_charges.aggregate(Sum('amount'))['amount__sum'] or 0
+            if s_amount > 0 or not service_id:
+                service_stats.append({
+                    'name': service.name,
+                    'amount': float(s_amount),
+                    'count': s_charges.count()
+                })
+        
+        service_stats.sort(key=lambda x: x['amount'], reverse=True)
+        context['service_stats'] = service_stats
+        context['service_stats_json'] = json.dumps(service_stats)
+
+        # 6. Chart 2: Monthly Trends (Last 6 Months)
+        monthly_trends = []
+        today = timezone.now().date()
+        for i in range(5, -1, -1):
+            ms = (today.replace(day=1) - timedelta(days=i*30)).replace(day=1)
+            me = (ms + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            
+            m_charges = charges.filter(created_at__date__range=[ms, me]).aggregate(Sum('amount'))['amount__sum'] or 0
+            m_payments = payments.filter(date_paid__range=[ms, me]).aggregate(Sum('amount'))['amount__sum'] or 0
+            
+            monthly_trends.append({
+                'month': ms.strftime('%b %Y'),
+                'charged': float(m_charges),
+                'paid': float(m_payments)
+            })
+        
+        context['monthly_trends_json'] = json.dumps(monthly_trends)
+
+        # 7. Metadata for Selects
+        context['schools'] = School.objects.all()
+        context['grades'] = Grade.objects.all()
+        context['services'] = AuxiliaryServiceType.objects.all()
+        
+        # 8. Current Filter Values
+        context['selected_school'] = school_id
+        context['selected_grade'] = grade_id
+        context['selected_service'] = service_id
+        context['date_from'] = date_from
+        context['date_to'] = date_to
+
+        return context
+

@@ -62,6 +62,7 @@
     </div>
 </div>
 
+{% if user.is_superuser or user.role|lower == 'admin' or user.role|lower == 'receptionist' %}
 <!-- Top Summary Cards -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
     <!-- Total Students -->
@@ -136,6 +137,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <!-- Middle Section: Charts/Graphs (3 Columns) -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
