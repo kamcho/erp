@@ -1509,16 +1509,32 @@ def auxiliary_charges_list(request):
 
     charges_list = list(charges)
 
-    services = AuxiliaryServiceType.objects.all()
-
     context = {
         'charges': charges_list,
-        'services': services,
-        'search_query': search_query,
+        'services': AuxiliaryServiceType.objects.all(),
         'selected_service': service_id,
+        'last_payment_id': request.session.pop('last_aux_payment_id', None),
     }
 
     return render(request, 'accounts/auxiliary_charges.html', context)
+
+
+@login_required
+def auxiliary_payment_receipt(request, payment_id):
+    from .models import AuxiliaryPayment
+    payment = get_object_or_404(AuxiliaryPayment, id=payment_id)
+    student = payment.student
+    profile = student.studentprofile
+    school = profile.school
+    
+    context = {
+        'payment': payment,
+        'student': student,
+        'profile': profile,
+        'school': school,
+        'today': timezone.now(),
+    }
+    return render(request, 'accounts/auxiliary_payment_receipt.html', context)
 
 
 @login_required
@@ -1549,7 +1565,7 @@ def record_auxiliary_payment(request):
             messages.error(request, "Payment amount must be greater than zero.")
             return redirect(request.META.get('HTTP_REFERER', '/'))
 
-        AuxiliaryPayment.objects.create(
+        payment = AuxiliaryPayment.objects.create(
             student=student,
             amount=amount,
             method=method,
@@ -1558,8 +1574,9 @@ def record_auxiliary_payment(request):
             recorded_by=request.user,
         )
 
-        messages.success(request, f"Auxiliary payment of KES {amount} recorded successfully.")
-        return redirect(request.META.get('HTTP_REFERER', '/'))
+        messages.success(request, f"Payment of KES {amount} for {student.first_name} recorded successfully.")
+        request.session['last_aux_payment_id'] = payment.id
+        return redirect('accounts:auxiliary-charges-list')
 
     return redirect('/')
 

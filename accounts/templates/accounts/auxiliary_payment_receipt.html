@@ -1,0 +1,129 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auxiliary Receipt - {{ student.get_full_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap');
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #f1f5f9;
+            color: #334155;
+        }
+
+        @media print {
+            @page {
+                size: 80mm 150mm;
+                margin: 0;
+            }
+            body { 
+                background-color: white; 
+                margin: 0; 
+                padding: 0; 
+            }
+            .no-print { display: none !important; }
+            .receipt-compact { 
+                box-shadow: none !important; 
+                margin: 0 !important; 
+                width: 80mm !important;
+                padding: 5mm !important;
+                border: none !important;
+            }
+        }
+
+        .receipt-compact {
+            width: 350px;
+            margin: 40px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        .dashed-line {
+            border-top: 2px dashed #e2e8f0;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body class="p-4">
+    
+    <!-- Controls -->
+    <div class="no-print max-w-[350px] mx-auto mb-4 flex justify-between items-center">
+        <button onclick="window.close()" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors">
+            Close
+        </button>
+        <button onclick="window.print()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-xs hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100">
+            PRINT
+        </button>
+    </div>
+
+    <div class="receipt-compact">
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <h1 class="text-lg font-extrabold text-slate-900 uppercase leading-tight">{{ school.name|default:"Excel Academy" }}</h1>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Auxiliary Service Receipt</p>
+        </div>
+
+        <div class="flex justify-between items-center mb-4 text-[11px] font-bold">
+            <span class="text-slate-400">RECEIPT #</span>
+            <span class="text-indigo-600">AUX-{{ payment.id|stringformat:"04d" }}</span>
+        </div>
+
+        <div class="dashed-line"></div>
+
+        <!-- Details -->
+        <div class="space-y-3">
+            <div>
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Student Name</p>
+                <p class="text-sm font-extrabold text-slate-800">{{ student.get_full_name }}</p>
+                <p class="text-[10px] font-bold text-slate-500">ADM: {{ student.adm_no }}</p>
+            </div>
+
+            <div>
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Date & Method</p>
+                <p class="text-[11px] font-bold text-slate-700">{{ payment.date_paid|date:"d M, Y" }} — {{ payment.method }}</p>
+            </div>
+        </div>
+
+        <div class="dashed-line"></div>
+
+        <!-- Amount -->
+        <div class="py-2">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-bold text-slate-500">Amount Paid</span>
+                <span class="text-base font-black text-slate-900">KES {{ payment.amount|floatformat:0 }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-xs font-bold text-slate-500">Service Balance</span>
+                <span class="text-sm font-black text-rose-500">KES {{ profile.auxiliary_balance|floatformat:0 }}</span>
+            </div>
+        </div>
+
+        <div class="dashed-line"></div>
+
+        <!-- Footer -->
+        <div class="text-center">
+            <p class="text-[10px] font-bold text-slate-400 italic">Thank you for your payment.</p>
+            <div class="mt-4 pt-4 border-t border-slate-50">
+                <p class="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Served by: {{ payment.recorded_by.get_full_name|default:"System" }}</p>
+                <p class="text-[8px] font-medium text-slate-300 mt-0.5">{{ today|date:"d/m/Y H:i" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto print on load if requested
+        window.onload = function() {
+            if (window.location.search.includes('autoprint=true')) {
+                window.print();
+            }
+        }
+    </script>
+</body>
+</html>

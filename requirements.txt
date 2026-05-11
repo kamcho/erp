@@ -1,0 +1,11 @@
+django>=4.2.0
+django-dotenv
+whitenoise[brotli]
+gunicorn
+mysqlclient
+requests
+openai
+Pillow
+openpyxl
+pandas
+python-dotenv
