@@ -9,4 +9,6 @@ Pillow
 openpyxl
 pandas
 python-dotenv
+
+
 django-two-factor-auth[phonenumbers,qrcode]

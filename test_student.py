@@ -14,6 +14,6 @@ def test_single_student():
         ph = PromotionHistory.objects.filter(student=s)
         for p in ph:
             print(f"  - {p.from_class} -> {p.to_class} Year:{p.academic_year_id} At:{p.promoted_at}")
-
+            print("done")
 if __name__ == "__main__":
     test_single_student()
