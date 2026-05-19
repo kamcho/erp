@@ -16,8 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from two_factor.urls import urlpatterns as tf_urls
+
+# Extract actual patterns from the 2FA tuple
+tf_patterns = tf_urls[0] if isinstance(tf_urls, tuple) else tf_urls
 
 urlpatterns = [
+    path('', include((tf_patterns, 'two_factor'), namespace='two_factor')),
     path('admin/', admin.site.urls),
     path('', include('core.urls')),
     path('users/', include('users.urls')),

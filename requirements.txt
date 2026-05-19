@@ -2,10 +2,11 @@ django>=4.2.0
 django-dotenv
 whitenoise[brotli]
 gunicorn
-mysqlclient
+psycopg2-binary
 requests
 openai
 Pillow
 openpyxl
 pandas
 python-dotenv
+django-two-factor-auth[phonenumbers,qrcode]

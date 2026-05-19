@@ -73,6 +73,12 @@ INSTALLED_APPS = [
     'e_learning',
     'cafe',
     'attendance',
+    
+    # 2FA
+    'django_otp',
+    'django_otp.plugins.otp_static',
+    'django_otp.plugins.otp_totp',
+    'two_factor',
 ]
 
 
@@ -83,6 +89,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django_otp.middleware.OTPMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.GlobalErrorHandlingMiddleware',
@@ -120,15 +127,12 @@ if ENVIRONMENT == 'dev':
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': _env('MYSQL_DATABASE', ''),
-            'USER': _env('MYSQL_USER', ''),
-            'PASSWORD': _env('MYSQL_PASSWORD', ''),
-            'HOST': _env('MYSQL_HOST', '127.0.0.1'),
-            'PORT': _env('MYSQL_PORT', '3306'),
-            'OPTIONS': {
-                'charset': 'utf8mb4',
-            },
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': _env('POSTGRES_DB', ''),
+            'USER': _env('POSTGRES_USER', ''),
+            'PASSWORD': _env('POSTGRES_PASSWORD', ''),
+            'HOST': _env('POSTGRES_HOST', '127.0.0.1'),
+            'PORT': _env('POSTGRES_PORT', '5432'),
         }
     }
 
@@ -190,9 +194,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.MyUser'
 
-LOGIN_URL = 'users:login'
+LOGIN_URL = 'two_factor:login'
 LOGIN_REDIRECT_URL = 'core:dashboard'
-LOGOUT_REDIRECT_URL = 'users:login'
+LOGOUT_REDIRECT_URL = 'two_factor:login'
+ 
+ # 2FA Settings
+TWO_FACTOR_REMEMBER_COOKIE_AGE = 60 * 60 * 24 * 3 # 30 days
 
 # M-Pesa Integration Settings
 MPESA_ENVIRONMENT = (_env('MPESA_ENVIRONMENT') or 'sandbox').strip()

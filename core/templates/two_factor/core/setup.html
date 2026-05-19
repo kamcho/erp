@@ -1,0 +1,126 @@
+{% extends "two_factor/_base.html" %}
+{% load i18n %}
+
+{% block extra_title %}Setup{% endblock %}
+
+{% block two_factor_content %}
+<div class="text-center">
+    {% if wizard.steps.current == 'welcome' %}
+        <div class="mb-10">
+            <div class="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 rounded-3xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-3xl mx-auto mb-6">
+                <i class="fas fa-shield-halved"></i>
+            </div>
+            <h2 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-4">Enable Two-Factor Security</h2>
+            <p class="text-slate-500 dark:text-slate-400 font-medium max-w-sm mx-auto leading-relaxed">
+                Add an extra layer of security to your account. You'll need the Google Authenticator app on your phone.
+            </p>
+        </div>
+
+    {% elif wizard.steps.current == 'method' %}
+        <div class="mb-10 text-left">
+            <h3 class="text-xl font-black text-slate-900 dark:text-white mb-4">Choose Verification Method</h3>
+            <p class="text-slate-500 text-sm font-medium mb-6">Select how you want to receive your security tokens.</p>
+        </div>
+
+    {% elif wizard.steps.current == 'generator' %}
+        <div class="mb-10">
+            <div class="inline-block p-6 bg-white rounded-[2rem] shadow-2xl shadow-indigo-100 border border-indigo-50 mb-8">
+                <img src="{{ QR_URL }}" alt="QR Code" class="w-48 h-48">
+            </div>
+            <h3 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-3">Scan this QR Code</h3>
+            <p class="text-slate-500 dark:text-slate-400 text-sm font-medium max-w-xs mx-auto leading-relaxed">
+                Open Google Authenticator on your phone, tap the <span class="text-indigo-600 font-bold">+</span> icon, and scan this code.
+            </p>
+            
+            <div class="mt-8 p-4 bg-amber-50 border border-amber-100 rounded-2xl text-left">
+                <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1 flex items-center gap-2">
+                    <i class="fas fa-keyboard"></i> Manual Entry Key
+                </p>
+                <code class="text-xs font-black text-amber-900 break-all select-all">{{ secret_key }}</code>
+            </div>
+        </div>
+
+    {% elif wizard.steps.current == 'sms' %}
+        <div class="mb-10 text-left">
+            <h3 class="text-xl font-black text-slate-900 dark:text-white mb-4">SMS Verification</h3>
+            <p class="text-slate-500 text-sm font-medium mb-6">Enter your phone number to receive a verification code.</p>
+        </div>
+
+    {% elif wizard.steps.current == 'call' %}
+        <div class="mb-10 text-left">
+            <h3 class="text-xl font-black text-slate-900 dark:text-white mb-4">Voice Call Verification</h3>
+            <p class="text-slate-500 text-sm font-medium mb-6">Enter your phone number to receive a voice call with your code.</p>
+        </div>
+
+    {% elif wizard.steps.current == 'validation' %}
+        <div class="mb-10">
+            <div class="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 text-2xl mx-auto mb-6">
+                <i class="fas fa-check-double"></i>
+            </div>
+            <h3 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Final Verification</h3>
+            <p class="text-slate-500 dark:text-slate-400 text-sm font-medium mb-8">Enter the 6-digit code currently shown in your app.</p>
+        </div>
+
+    {% elif wizard.steps.current == 'yubikey' %}
+        <div class="mb-10 text-left">
+            <h3 class="text-xl font-black text-slate-900 dark:text-white mb-4">YubiKey Setup</h3>
+            <p class="text-slate-500 text-sm font-medium mb-6">Insert your YubiKey and press the button.</p>
+        </div>
+    {% endif %}
+
+    <form action="" method="post" class="space-y-6">
+        {% csrf_token %}
+        {{ wizard.management_form }}
+
+        {% if wizard.form.non_field_errors %}
+            <div class="bg-rose-50 border border-rose-100 text-rose-600 p-4 rounded-xl text-xs font-bold mb-6">
+                {{ wizard.form.non_field_errors.0 }}
+            </div>
+        {% endif %}
+
+        <div class="max-w-xs mx-auto text-left">
+            {% for field in wizard.form %}
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                        {{ field.label }}
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                            {% if 'otp' in field.name or 'token' in field.name %}
+                                <i class="fas fa-key text-xs"></i>
+                            {% elif 'phone' in field.name %}
+                                <i class="fas fa-phone text-xs"></i>
+                            {% endif %}
+                        </div>
+                        <input type="{{ field.field.widget.input_type|default:'text' }}" 
+                               name="{{ field.html_name }}"
+                               class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-bold focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+                               placeholder="{{ field.label }}">
+                    </div>
+                    {% if field.errors %}
+                        <p class="text-rose-500 text-[10px] font-bold mt-1 ml-1 uppercase">{{ field.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="pt-6 flex flex-col items-center gap-4">
+            <button type="submit" class="w-full max-w-xs py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-100 transition-all transform active:scale-95 flex items-center justify-center gap-3 group">
+                {% if wizard.steps.current == 'welcome' %}
+                    GET STARTED <i class="fas fa-arrow-right text-xs transform group-hover:translate-x-1 transition-transform"></i>
+                {% elif wizard.steps.current == 'validation' %}
+                    FINISH SETUP <i class="fas fa-check-circle"></i>
+                {% else %}
+                    CONTINUE <i class="fas fa-chevron-right text-xs"></i>
+                {% endif %}
+            </button>
+
+            {% if wizard.steps.prev %}
+                <button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">
+                    Back to previous step
+                </button>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}

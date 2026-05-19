@@ -152,10 +152,6 @@
                     <i class="fas fa-wallet w-5 text-lg opacity-70"></i>
                     <span>Financial Hub</span>
                 </a>
-                <a href="{% url 'accounts:auxiliary-analytics' %}" class="menu-item {% if request.resolver_match.url_name == 'auxiliary-analytics' %}active{% endif %}">
-                    <i class="fas fa-chart-pie w-5 text-lg opacity-70"></i>
-                    <span>Auxiliary Analytics</span>
-                </a>
                
 
                 <a href="{% url 'attendance:late-rules-list' %}" class="menu-item {% if 'late-rules' in request.path %}active{% endif %}">
@@ -328,6 +324,9 @@
                             {% endif %}
                             
                             <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
+                                <a href="{% url 'two_factor:profile' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
+                                    <i class="fas fa-shield-halved opacity-50"></i> 2FA Security
+                                </a>
                                 <a href="{% url 'users:user-profile' request.user.id %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
                                     <i class="fas fa-user-circle opacity-50"></i> View My Profile
                                 </a>

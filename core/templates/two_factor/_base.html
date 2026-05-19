@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% block extra_title %}{% endblock %} Security - Excel SMS{% endblock %}
+
+{% block page_header %}
+<h1 class="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">Account Security</h1>
+<p class="text-slate-400 dark:text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] mt-0.5 truncate hidden xs:block">Multi-Factor Authentication Management</p>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-10">
+    <div class="glass-card overflow-hidden !p-0">
+        <!-- Header Section -->
+        <div class="bg-gradient-to-r from-indigo-600 to-purple-700 p-8 text-white relative">
+            <div class="relative z-10">
+                <h2 class="text-2xl font-black tracking-tight mb-2 flex items-center gap-3">
+                    <i class="fas fa-shield-halved"></i> Security Center
+                </h2>
+                <p class="text-indigo-100 text-sm font-medium">Protect your school data with industry-standard 2FA.</p>
+            </div>
+            <!-- Decorative Icon -->
+            <i class="fas fa-lock absolute right-8 top-1/2 -translate-y-1/2 text-8xl opacity-10 rotate-12"></i>
+        </div>
+
+        <!-- Main Body -->
+        <div class="p-8 md:p-12">
+            <div class="prose prose-slate max-w-none">
+                {% block two_factor_content %}
+                {% endblock %}
+            </div>
+        </div>
+
+        <!-- Footer Help -->
+        <div class="bg-slate-50 dark:bg-slate-800/50 p-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-6">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 bg-white dark:bg-slate-900 rounded-xl shadow-sm flex items-center justify-center text-indigo-500">
+                    <i class="fas fa-question-circle"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-black text-slate-800 dark:text-slate-200">Need help with 2FA?</p>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Contact system administrator</p>
+                </div>
+            </div>
+            <a href="{% url 'core:dashboard' %}" class="btn bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 text-xs font-bold px-6 py-2">
+                Return to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Styling for the library's default output to match our UI */
+    .prose h1 { @apply text-2xl font-black text-slate-900 mb-6; }
+    .prose p { @apply text-slate-500 font-medium leading-relaxed mb-6; }
+    .prose ul { @apply list-disc list-inside space-y-2 text-slate-500 font-medium mb-8; }
+    .prose .btn, .prose button[type="submit"] {
+        @apply inline-flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all transform active:scale-95 cursor-pointer;
+    }
+    .prose .btn-danger {
+        @apply bg-rose-500 shadow-rose-100 hover:bg-rose-600;
+    }
+    .prose a { @apply text-indigo-600 font-bold hover:underline; }
+    
+    /* Wizard steps styling */
+    .prose fieldset { @apply border-0 p-0 m-0; }
+    .prose label { @apply block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 mt-6; }
+    .prose input[type="text"], .prose input[type="password"], .prose input[type="tel"] {
+        @apply w-full px-5 py-3 bg-slate-100 border border-transparent rounded-xl text-slate-700 font-bold focus:bg-white focus:border-indigo-500 outline-none transition-all mb-4;
+    }
+</style>
+{% endblock %}
