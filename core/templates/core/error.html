@@ -93,5 +93,16 @@
             <p>If you need immediate assistance, please contact support.</p>
         </div>
     </div>
+
+    <!-- Debug Info (Bottom Right, Faint Text) -->
+    <div class="absolute bottom-4 right-4 text-right text-[10px] text-slate-400/25 dark:text-slate-600/25 select-none hover:text-slate-500 dark:hover:text-slate-400 transition-colors duration-300 font-mono pointer-events-auto z-50">
+        <div>Code: {{ status_code|default:"500" }}</div>
+        {% if error_message %}
+        <div class="max-w-xs truncate" title="{{ error_message }}">Info: {{ error_message }}</div>
+        {% endif %}
+        {% if path %}
+        <div class="max-w-xs truncate" title="{{ path }}">Path: {{ path }}</div>
+        {% endif %}
+    </div>
 </body>
 </html>

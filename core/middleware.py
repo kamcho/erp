@@ -18,13 +18,24 @@ class GlobalErrorHandlingMiddleware:
                 context = {
                     'status_code': response.status_code,
                     'is_404': response.status_code == 404,
+                    'path': request.path,
                 }
                 return render(request, 'core/error.html', context, status=response.status_code)
             return response
         except Exception as e:
             logger.error(f"Unhandled exception caught by middleware: {e}", exc_info=True)
-            return render(request, 'core/error.html', status=500)
+            context = {
+                'status_code': 500,
+                'error_message': str(e),
+                'path': request.path,
+            }
+            return render(request, 'core/error.html', context, status=500)
 
     def process_exception(self, request, exception):
         logger.error(f"process_exception caught: {exception}", exc_info=True)
-        return render(request, 'core/error.html', status=500)
+        context = {
+            'status_code': 500,
+            'error_message': str(exception),
+            'path': request.path,
+        }
+        return render(request, 'core/error.html', context, status=500)
