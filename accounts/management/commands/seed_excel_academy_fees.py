@@ -23,27 +23,27 @@ class Command(BaseCommand):
             {
                 'name': 'ECDE (Playgroup, PP1, PP2)',
                 'grade_names': ['Play Group', 'PP1', 'PP2'],
-                'amounts': {2: 10700, 3: 10000, 4: 10000}
+                'amounts': {1: 10700, 3: 10000, 4: 10000}
             },
             {
                 'name': 'Grade 1-3',
                 'grade_names': ['Grade 1', 'Grade 2', 'Grade 3'],
-                'amounts': {2: 15700, 3: 15000, 4: 15000}
+                'amounts': {1: 15700, 3: 15000, 4: 15000}
             },
             {
                 'name': 'Grade 4-6',
                 'grade_names': ['Grade 4', 'Grade 5', 'Grade 6'],
-                'amounts': {2: 16700, 3: 16000, 4: 16000}
+                'amounts': {1: 16700, 3: 16000, 4: 16000}
             },
             {
                 'name': 'Junior School (Grade 7-8)',
                 'grade_names': ['Grade 7', 'Grade 8'],
-                'amounts': {2: 20000, 3: 20000, 4: 20000}
+                'amounts': {1: 20000, 3: 20000, 4: 20000}
             },
             {
                 'name': 'Junior School (Grade 9)',
                 'grade_names': ['Grade 9'],
-                'amounts': {2: 23000, 3: 23000, 4: 23000}
+                'amounts': {1: 23000, 3: 23000, 4: 23000}
             }
         ]
         
