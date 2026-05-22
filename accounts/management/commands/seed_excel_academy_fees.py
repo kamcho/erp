@@ -13,7 +13,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR("School Excel Academy (ID 1) not found."))
             return
             
-        terms = Term.objects.filter(id__in=[2, 3, 4]) # 2: Term 1, 3: Term 2, 4: Term 3
+        terms = Term.objects.all() # 2: Term 1, 3: Term 2, 4: Term 3
         if not terms.exists():
              self.stdout.write(self.style.ERROR("Required Terms (IDs 2, 3, 4) not found."))
              return
