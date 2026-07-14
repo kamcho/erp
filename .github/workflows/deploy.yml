@@ -12,7 +12,7 @@ jobs:
       - name: Deploy using SSH password
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: '137.184.58.240'
+          host: '137.184.137.222'
           username: 'root'
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
