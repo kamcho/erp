@@ -97,80 +97,171 @@
 
 
 
-<div class="bg-white rounded-[10px] shadow-sm border border-slate-200 overflow-hidden">
-    <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center bg-slate-50/50 gap-4">
-        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-            <i class="fas fa-clock text-indigo-500"></i>
-            {% if search_query %}Search Results for "{{ search_query }}"{% else %}Recent Students{% endif %}
-        </h3>
-        
-        <form method="get" class="relative group w-full sm:w-auto">
+<div class="relative bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+    <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-600"></div>
+
+    <div class="px-6 md:px-8 pt-7 pb-5 flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-slate-100 bg-gradient-to-br from-indigo-50/40 via-white to-white">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200/60 flex-shrink-0">
+                <i class="fas fa-user-graduate text-lg"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-3 flex-wrap">
+                    <h3 class="text-lg md:text-xl font-black text-slate-800 tracking-tight">
+                        {% if search_query %}Search Results{% else %}Recent Students{% endif %}
+                    </h3>
+                    {% if not search_query and recent_students %}
+                    <span class="px-2.5 py-1 bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-widest rounded-full">
+                        Latest {{ recent_students|length }}
+                    </span>
+                    {% endif %}
+                </div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
+                    {% if search_query %}Matches for "{{ search_query }}"{% else %}Newest enrollments across your campuses{% endif %}
+                </p>
+            </div>
+        </div>
+
+        <form method="get" class="relative group w-full lg:w-auto">
             <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors"></i>
-            <input type="text" name="q" value="{{ search_query }}" placeholder="Search name or adm no..." 
-                   class="w-full sm:w-80 pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-[10px] text-xs font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm">
+            <input type="text" name="q" value="{{ search_query }}" placeholder="Search name or admission no..."
+                   class="w-full lg:w-80 pl-12 pr-10 py-3.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm">
             {% if search_query %}
-            <a href="{% url 'core:dashboard' %}" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-500 transition-colors">
+            <a href="{% url 'core:dashboard' %}" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-500 transition-colors" title="Clear search">
                 <i class="fas fa-times-circle"></i>
             </a>
             {% endif %}
         </form>
     </div>
+
     <div class="overflow-x-auto">
-        <table class="w-100 min-w-full divide-y divide-slate-200">
-            <thead class="bg-slate-50">
-                <tr>
-                    <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest hidden md:table-cell">Adm No</th>
-                    <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Student Information</th>
-                    <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">School</th>
-                    <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest hidden md:table-cell">Gender</th>
-                    <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Status</th>
+        <table class="w-full min-w-[720px] text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-50/80 border-b border-slate-100">
+                    <th class="py-4 px-6 md:px-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hidden md:table-cell">Adm No</th>
+                    <th class="py-4 px-6 md:px-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Student</th>
+                    <th class="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hidden lg:table-cell">Class</th>
+                    <th class="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">School</th>
+                    <th class="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hidden md:table-cell">Gender</th>
+                    <th class="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Status</th>
+                    <th class="py-4 px-6 md:px-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Action</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100 bg-white">
+            <tbody class="divide-y divide-slate-50">
                 {% for student in recent_students %}
-                <tr class="even:bg-slate-100/80 hover:bg-indigo-50 transition-colors group">
-                    <td class="px-6 py-4 whitespace-nowrap hidden md:table-cell">
-                        <span class="px-3 py-1 bg-white text-slate-700 border border-slate-200 rounded-[10px] text-xs font-bold">{{ student.adm_no }}</span>
+                <tr class="group hover:bg-indigo-50/40 transition-all duration-200">
+                    <td class="py-5 px-6 md:px-8 whitespace-nowrap hidden md:table-cell">
+                        <span class="inline-flex items-center px-3 py-1.5 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-black tracking-wide group-hover:border-indigo-200 group-hover:bg-white transition-colors">
+                            {{ student.adm_no }}
+                        </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <a href="{% url 'core:student-detail' student.pk %}" class="flex items-center gap-3 hover:text-indigo-600 transition-colors">
-                            <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-[10px] md:text-xs flex-shrink-0">
-                                {{ student.first_name|first }}{{ student.last_name|first }}
+                    <td class="py-5 px-6 md:px-8">
+                        <a href="{% url 'core:student-detail' student.pk %}" class="flex items-center gap-4 min-w-0">
+                            <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 flex items-center justify-center overflow-hidden shadow-sm flex-shrink-0 transition-transform duration-200 group-hover:scale-105 group-hover:shadow-md">
+                                {% if student.photo %}
+                                <img src="{{ student.photo.url }}" alt="{{ student.get_full_name }}" class="w-full h-full object-cover">
+                                {% else %}
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-indigo-400" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
+                                </svg>
+                                {% endif %}
                             </div>
-                            <div class="flex flex-col">
-                                <span class="text-xs md:text-sm font-bold text-slate-700 group-hover:text-indigo-600">{{ student.first_name }} {{ student.last_name }}</span>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-[9px] md:hidden font-black text-indigo-500 uppercase tracking-tighter">Adm: {{ student.adm_no }}</span>
-                                    <span class="text-[10px] text-slate-400 font-medium italic hidden md:block">Joined {{ student.joined_date|date:"M d, Y" }}</span>
+                            <div class="min-w-0 space-y-1">
+                                <p class="text-sm font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
+                                    {{ student.first_name }} {{ student.last_name }}
+                                </p>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider md:hidden">ADM {{ student.adm_no }}</span>
+                                    <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-400">
+                                        <i class="far fa-calendar-alt text-[9px]"></i>
+                                        {{ student.joined_date|date:"d M Y" }}
+                                    </span>
                                 </div>
                             </div>
                         </a>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-xs md:text-sm font-bold text-slate-600">
-                        {{ student.studentprofile.school.name|default:"-"|truncatechars:15 }}
+                    <td class="py-5 px-6 whitespace-nowrap hidden lg:table-cell">
+                        {% if student.studentprofile.class_id %}
+                        <div class="space-y-0.5">
+                            <p class="text-xs font-bold text-slate-700">{{ student.studentprofile.class_id.grade.name }}</p>
+                            <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{{ student.studentprofile.class_id.name }}</p>
+                        </div>
+                        {% else %}
+                        <span class="text-[11px] font-semibold text-slate-300 italic">Unassigned</span>
+                        {% endif %}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap hidden md:table-cell">
-                        <span class="text-sm font-medium text-slate-500 capitalize">{{ student.get_gender_display }}</span>
+                    <td class="py-5 px-6">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-school text-[10px]"></i>
+                            </div>
+                            <p class="text-xs font-bold text-slate-700 truncate max-w-[140px] lg:max-w-[180px]" title="{{ student.studentprofile.school.name|default:'—' }}">
+                                {{ student.studentprofile.school.name|default:"—" }}
+                            </p>
+                        </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-center">
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 text-[9px] md:text-[10px] font-bold rounded-full border border-emerald-200 uppercase tracking-wider">
-                            <span class="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full bg-emerald-500"></span>
-                            Active
+                    <td class="py-5 px-6 whitespace-nowrap hidden md:table-cell">
+                        {% if student.gender == 'female' %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-pink-50 text-pink-600 border border-pink-100 text-[10px] font-bold capitalize">
+                            <i class="fas fa-venus text-[9px]"></i>
+                            {{ student.get_gender_display }}
                         </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50 text-sky-600 border border-sky-100 text-[10px] font-bold capitalize">
+                            <i class="fas fa-mars text-[9px]"></i>
+                            {{ student.get_gender_display }}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="py-5 px-6 text-center whitespace-nowrap">
+                        {% with status=student.studentprofile.status|default:"Active" %}
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-full border
+                            {% if status == 'Active' %}bg-emerald-50 text-emerald-700 border-emerald-200
+                            {% elif status == 'Graduated' %}bg-sky-50 text-sky-700 border-sky-200
+                            {% elif status == 'Transferred' %}bg-amber-50 text-amber-700 border-amber-200
+                            {% else %}bg-rose-50 text-rose-700 border-rose-200{% endif %}">
+                            <span class="w-1.5 h-1.5 rounded-full
+                                {% if status == 'Active' %}bg-emerald-500
+                                {% elif status == 'Graduated' %}bg-sky-500
+                                {% elif status == 'Transferred' %}bg-amber-500
+                                {% else %}bg-rose-500{% endif %}"></span>
+                            {{ status }}
+                        </span>
+                        {% endwith %}
+                    </td>
+                    <td class="py-5 px-6 md:px-8 text-right whitespace-nowrap">
+                        <a href="{% url 'core:student-detail' student.pk %}"
+                           class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-slate-50 text-slate-400 border border-slate-100 opacity-0 translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all duration-200 shadow-sm"
+                           title="View profile">
+                            <i class="far fa-arrow-right text-xs"></i>
+                        </a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="px-6 py-12 text-center text-slate-400">
-                        <div class="flex flex-col items-center gap-3">
-                            <i class="fas fa-folder-open text-4xl opacity-20"></i>
-                            <p class="font-medium">No recent students found.</p>
+                    <td colspan="7" class="py-20 px-6 text-center">
+                        <div class="w-20 h-20 bg-gradient-to-br from-slate-50 to-indigo-50 rounded-[2rem] flex items-center justify-center mx-auto mb-5 text-slate-300 text-3xl shadow-inner">
+                            <i class="fas fa-user-slash"></i>
                         </div>
+                        <h4 class="text-lg font-black text-slate-800 tracking-tight">No students found</h4>
+                        <p class="text-xs font-medium text-slate-400 mt-1.5 max-w-sm mx-auto">
+                            {% if search_query %}Try a different name or admission number.{% else %}New enrollments will appear here as students are added.{% endif %}
+                        </p>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+
+    <div class="px-6 md:px-8 py-4 bg-slate-50/70 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+            {% if search_query %}Filtered results{% else %}Showing the 7 most recent enrollments{% endif %}
+        </p>
+        <a href="{% url 'core:students-list' %}" class="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors group/link">
+            View all students
+            <i class="fas fa-arrow-right text-[10px] transform group-hover/link:translate-x-0.5 transition-transform"></i>
+        </a>
     </div>
 </div>
 

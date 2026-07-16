@@ -310,68 +310,115 @@
     <div class="flex items-center justify-between mb-8 pb-4 border-b border-slate-100">
         <div>
             <h3 class="text-xl font-extrabold text-slate-800">Recent Broadcasts</h3>
-            <p class="text-sm text-slate-500 mt-1">History of all sent messages and their delivery status</p>
+            <p class="text-sm text-slate-500 mt-1">Expand a broadcast to view delivery details and filter by status</p>
         </div>
         <a href="{% url 'communication:payment-notifications' %}" class="text-sm font-bold text-sky-600 hover:text-sky-700 border border-sky-100 bg-sky-50 px-4 py-2 rounded-lg transition-colors shadow-sm">
             View Payment Notifications <i class="fas fa-arrow-right ml-1 text-xs"></i>
         </a>
     </div>
-    
-    <div class="divide-y divide-slate-100">
+
+    <div class="space-y-3" id="broadcast-list">
         {% for notification in notifications %}
-        <div class="py-5 px-4 -mx-4 hover:bg-slate-50 rounded-2xl transition-colors duration-200 flex flex-col md:flex-row md:items-start justify-between gap-4 group">
-            <div class="flex items-start gap-4">
-                <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center text-xl shrink-0 group-hover:bg-white group-hover:shadow-sm border border-transparent group-hover:border-slate-200 transition-all">
-                    <i class="fas fa-bullhorn text-slate-500"></i>
-                </div>
-                <div>
-                    <h4 class="font-bold text-slate-900 text-base mb-1">{{ notification.title }}</h4>
-                    <p class="text-sm text-slate-600 mb-2 leading-relaxed max-w-3xl line-clamp-2">{{ notification.message }}</p>
-                    <div class="flex flex-wrap items-center gap-3 text-xs font-bold">
-                        <span class="text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md">{{ notification.created_at|date:"M d, Y • H:i" }}</span>
-                        <span class="text-sky-600 bg-sky-50 px-2.5 py-1 rounded-md border border-sky-100">{{ notification.get_target_type_display }}</span>
-                        {% if notification.school %}
-                        <span class="text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100"><i class="fas fa-school mr-1 opacity-70"></i> {{ notification.school.name }}</span>
-                        {% endif %}
+        <div class="broadcast-item border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow" data-notification-id="{{ notification.id }}">
+            <div class="px-5 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-50/80 transition-colors">
+                <button type="button"
+                        class="broadcast-toggle flex items-start gap-4 min-w-0 flex-1 text-left"
+                        aria-expanded="false">
+                    <div class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center text-lg shrink-0 border border-indigo-100">
+                        <i class="fas fa-bullhorn"></i>
                     </div>
-                </div>
-            </div>
-            
-            <div class="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-4 shrink-0 pl-16 md:pl-0">
-                <div class="flex gap-4 items-center">
-                    <div class="text-center px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
-                        <div class="text-emerald-700 font-black text-sm">{{ notification.success_count }}</div>
-                        <div class="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Sent</div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2 flex-wrap mb-1">
+                            <h4 class="font-bold text-slate-900 text-base">{{ notification.title }}</h4>
+                            <i class="fas fa-chevron-down text-slate-400 text-xs broadcast-chevron transition-transform duration-200"></i>
+                        </div>
+                        <p class="text-sm text-slate-600 mb-2 leading-relaxed line-clamp-2">{{ notification.message }}</p>
+                        <div class="flex flex-wrap items-center gap-2 text-xs font-bold">
+                            <span class="text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">{{ notification.created_at|date:"M d, Y • H:i" }}</span>
+                            <span class="text-sky-600 bg-sky-50 px-2.5 py-1 rounded-md border border-sky-100">{{ notification.get_target_type_display }}</span>
+                            {% if notification.school %}
+                            <span class="text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100"><i class="fas fa-school mr-1 opacity-70"></i>{{ notification.school.name }}</span>
+                            {% endif %}
+                            <span class="text-slate-400">by {{ notification.created_by.first_name|default:"System" }}</span>
+                        </div>
                     </div>
-                    {% if notification.failed_count > 0 %}
-                    <div class="flex items-center gap-2">
-                        <div class="text-center px-3 py-1.5 bg-rose-50 rounded-lg border border-rose-100">
+                </button>
+
+                <div class="flex items-center gap-3 shrink-0 pl-15 lg:pl-0">
+                    <div class="flex gap-2 items-center">
+                        <div class="text-center px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100 min-w-[56px]">
+                            <div class="text-emerald-700 font-black text-sm">{{ notification.success_count }}</div>
+                            <div class="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Sent</div>
+                        </div>
+                        <div class="text-center px-3 py-1.5 bg-rose-50 rounded-lg border border-rose-100 min-w-[56px]">
                             <div class="text-rose-700 font-black text-sm">{{ notification.failed_count }}</div>
                             <div class="text-[10px] text-rose-600 font-bold uppercase tracking-wider">Failed</div>
                         </div>
-                        <form method="post" action="{% url 'communication:resend-notification' notification.id %}" onsubmit="return confirm('Resend failed messages to recipients who haven\'t received it yet?')">
-                            {% csrf_token %}
-                            <button type="submit" class="p-2 h-[46px] aspect-square rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center justify-center border border-rose-200 shadow-sm group" title="Resend Failed Messages">
-                                <i class="fas fa-redo-alt group-hover:rotate-180 transition-transform duration-300"></i>
-                            </button>
-                        </form>
+                        {% if notification.pending_count %}
+                        <div class="text-center px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-100 min-w-[56px]">
+                            <div class="text-amber-700 font-black text-sm">{{ notification.pending_count }}</div>
+                            <div class="text-[10px] text-amber-600 font-bold uppercase tracking-wider">Pending</div>
+                        </div>
+                        {% endif %}
                     </div>
-                    {% endif %}
-                </div>
-                
-                <div class="flex items-center gap-3">
-                    <span class="text-[11px] font-bold text-slate-400">By {{ notification.created_by.first_name|default:"System" }}</span>
-                    <form method="post" action="{% url 'communication:delete-notification' notification.id %}" onsubmit="return confirm('Delete this record?')">
+                    {% if notification.failed_count > 0 %}
+                    <form method="post" action="{% url 'communication:resend-notification' notification.id %}" onsubmit="return confirm('Resend failed messages to recipients who haven\'t received it yet?')">
                         {% csrf_token %}
-                        <button type="submit" class="w-8 h-8 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors flex items-center justify-center border border-transparent hover:border-rose-100">
-                            <i class="fas fa-trash-alt text-[13px]"></i>
+                        <button type="submit" class="p-2.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors border border-rose-200 shadow-sm" title="Resend failed messages">
+                            <i class="fas fa-redo-alt text-sm"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                    <form method="post" action="{% url 'communication:delete-notification' notification.id %}" onsubmit="return confirm('Delete this broadcast record?')">
+                        {% csrf_token %}
+                        <button type="submit" class="w-9 h-9 rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors border border-transparent hover:border-rose-100" title="Delete broadcast">
+                            <i class="fas fa-trash-alt text-sm"></i>
                         </button>
                     </form>
                 </div>
             </div>
+
+            <div class="broadcast-panel hidden border-t border-slate-100 bg-slate-50/50">
+                <div class="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 bg-white">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-list-ul text-indigo-500 text-sm"></i>
+                        <span class="text-sm font-bold text-slate-700">Delivery log</span>
+                        <span class="broadcast-log-summary text-xs font-semibold text-slate-400"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Show</label>
+                        <select class="broadcast-status-filter h-10 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 cursor-pointer shadow-sm">
+                            <option value="">All messages</option>
+                            <option value="Success">Succeeded only</option>
+                            <option value="Failed">Failed only</option>
+                            <option value="Pending">Pending only</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[640px] text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100/80 border-b border-slate-200">
+                                <th class="py-3 px-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Recipient</th>
+                                <th class="py-3 px-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                                <th class="py-3 px-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Sent at</th>
+                                <th class="py-3 px-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody class="broadcast-log-body divide-y divide-slate-100 bg-white">
+                            <tr class="broadcast-log-loading">
+                                <td colspan="4" class="py-10 text-center text-slate-400 text-sm font-medium">
+                                    <i class="fas fa-spinner fa-spin mr-2"></i> Loading delivery log...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
         {% empty %}
-        <div class="py-16 text-center">
+        <div class="py-16 text-center border border-dashed border-slate-200 rounded-2xl">
             <div class="w-20 h-20 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <i class="fas fa-paper-plane text-2xl text-slate-300"></i>
             </div>
@@ -397,7 +444,7 @@
     let currentRecipients = {{ guardians_count|default:0 }};
     const costPerMessage = 0.55;
 
-    function toggleFields() {
+    function toggleFields({ fetchCount = false } = {}) {
         const val = targetType.value;
         schoolField.classList.add('hidden');
         gradeField.classList.add('hidden');
@@ -408,8 +455,10 @@
         if (val === 'grade_all_schools' || val === 'grade_certain_school') {
             gradeField.classList.remove('hidden');
         }
-        
-        fetchRecipientsCount();
+
+        if (fetchCount) {
+            fetchRecipientsCount();
+        }
     }
     
     async function fetchRecipientsCount() {
@@ -465,7 +514,7 @@
         if (estCost) estCost.innerText = totalCost + " KES";
     }
 
-    targetType.addEventListener('change', toggleFields);
+    targetType.addEventListener('change', () => toggleFields({ fetchCount: true }));
     schoolSelect.addEventListener('change', fetchRecipientsCount);
     gradeSelect.addEventListener('change', fetchRecipientsCount);
     messageInput.addEventListener('input', updatePreviewAndCount);
@@ -474,6 +523,125 @@
     window.addEventListener('load', () => {
         toggleFields();
         updatePreviewAndCount();
+        initBroadcastPanels();
     });
+
+    const statusBadgeClasses = {
+        Success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        Failed: 'bg-rose-50 text-rose-700 border-rose-200',
+        Pending: 'bg-amber-50 text-amber-700 border-amber-200',
+    };
+
+    function renderBroadcastLogs(tbody, logs, summaryEl, data) {
+        if (!logs.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="py-12 text-center text-slate-400 text-sm font-medium">
+                        <i class="fas fa-inbox text-2xl mb-2 block opacity-40"></i>
+                        No messages match this filter.
+                    </td>
+                </tr>`;
+        } else {
+            tbody.innerHTML = logs.map(log => {
+                const badge = statusBadgeClasses[log.status] || 'bg-slate-50 text-slate-600 border-slate-200';
+                return `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-5">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-phone-alt text-[10px]"></i>
+                                </div>
+                                <span class="text-sm font-bold text-slate-800">${log.recipient}</span>
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-5">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${badge}">
+                                ${log.status}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-5 text-xs font-semibold text-slate-500 whitespace-nowrap">${log.timestamp}</td>
+                        <td class="py-3.5 px-5 text-xs text-slate-500 max-w-xs truncate" title="${log.response_description || log.message_id || '—'}">
+                            ${log.response_description || log.message_id || '—'}
+                        </td>
+                    </tr>`;
+            }).join('');
+        }
+
+        if (summaryEl) {
+            const suffix = data.total_matching > data.shown ? ` (showing ${data.shown} of ${data.total_matching})` : '';
+            summaryEl.textContent = `— ${data.total_matching} record${data.total_matching === 1 ? '' : 's'}${suffix}`;
+        }
+    }
+
+    async function loadBroadcastLogs(item, status = '') {
+        const id = item.dataset.notificationId;
+        const tbody = item.querySelector('.broadcast-log-body');
+        const summaryEl = item.querySelector('.broadcast-log-summary');
+        const filter = item.querySelector('.broadcast-status-filter');
+
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="py-10 text-center text-slate-400 text-sm font-medium">
+                    <i class="fas fa-spinner fa-spin mr-2"></i> Loading delivery log...
+                </td>
+            </tr>`;
+
+        try {
+            const params = status ? `?status=${encodeURIComponent(status)}` : '';
+            const url = `/communication/ajax/broadcast-logs/${id}/${params}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to load logs');
+            const data = await response.json();
+            renderBroadcastLogs(tbody, data.logs, summaryEl, data);
+            item.dataset.loadedStatus = status;
+        } catch (e) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="py-10 text-center text-rose-500 text-sm font-medium">
+                        Could not load delivery log. Please try again.
+                    </td>
+                </tr>`;
+        }
+    }
+
+    function initBroadcastPanels() {
+        document.querySelectorAll('.broadcast-item').forEach(item => {
+            const toggle = item.querySelector('.broadcast-toggle');
+            const panel = item.querySelector('.broadcast-panel');
+            const chevron = item.querySelector('.broadcast-chevron');
+            const filter = item.querySelector('.broadcast-status-filter');
+
+            toggle.addEventListener('click', () => {
+                const isOpen = !panel.classList.contains('hidden');
+                document.querySelectorAll('.broadcast-item').forEach(other => {
+                    if (other !== item) {
+                        other.querySelector('.broadcast-panel').classList.add('hidden');
+                        other.querySelector('.broadcast-toggle').setAttribute('aria-expanded', 'false');
+                        other.querySelector('.broadcast-chevron')?.classList.remove('rotate-180');
+                    }
+                });
+
+                if (isOpen) {
+                    panel.classList.add('hidden');
+                    toggle.setAttribute('aria-expanded', 'false');
+                    chevron?.classList.remove('rotate-180');
+                } else {
+                    panel.classList.remove('hidden');
+                    toggle.setAttribute('aria-expanded', 'true');
+                    chevron?.classList.add('rotate-180');
+                    const currentStatus = filter?.value || '';
+                    if (item.dataset.loadedStatus !== currentStatus) {
+                        loadBroadcastLogs(item, currentStatus);
+                    }
+                }
+            });
+
+            filter?.addEventListener('change', () => {
+                if (!panel.classList.contains('hidden')) {
+                    loadBroadcastLogs(item, filter.value);
+                }
+            });
+        });
+    }
 </script>
 {% endblock %}

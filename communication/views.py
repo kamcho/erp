@@ -8,76 +8,36 @@ from django.db.models import Q
 from .sms_utils import TextSMSAPI
 from users.models import MyUser
 
-from django.db.models import Count, Case, When, Value, IntegerField
+from django.db.models import Count
 
 @login_required
 def notification_dashboard(request):
     search_query = request.GET.get('q', '')
-    status_filter = request.GET.get('status', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
+
     notifications = Notification.objects.select_related('school', 'grade', 'created_by').annotate(
-        success_count=Count(
-            Case(When(sms_logs__status='Success', then=Value(1)), output_field=IntegerField())
-        ),
-        failed_count=Count(
-            Case(When(sms_logs__status='Failed', then=Value(1)), output_field=IntegerField())
-        )
-    ).order_by('-created_at')
-    
+        success_count=Count('sms_logs', filter=Q(sms_logs__status='Success')),
+        failed_count=Count('sms_logs', filter=Q(sms_logs__status='Failed')),
+        pending_count=Count('sms_logs', filter=Q(sms_logs__status='Pending')),
+    ).order_by('-created_at')[:20]
+
     if search_query:
         notifications = notifications.filter(
-            Q(title__icontains=search_query) | 
+            Q(title__icontains=search_query) |
             Q(message__icontains=search_query)
         )
-    
-    # SMS Logs with filtering
-    sms_logs = SMSLog.objects.select_related('notification').order_by('-timestamp')
-    
-    if search_query:
-        sms_logs = sms_logs.filter(
-            Q(recipient__icontains=search_query) | 
-            Q(message__icontains=search_query) |
-            Q(message_id__icontains=search_query)
-        )
-    
-    if status_filter:
-        sms_logs = sms_logs.filter(status=status_filter)
-        
-    if date_from:
-        sms_logs = sms_logs.filter(timestamp__date__gte=date_from)
-    if date_to:
-        sms_logs = sms_logs.filter(timestamp__date__lte=date_to)
-        
-    # Get recent SMS logs to show failure/success (limit after filtering)
-    sms_logs_display = sms_logs[:100]
-    
+
     schools = School.objects.all()
     grades = Grade.objects.all()
-    
+
     from django.core.cache import cache
-    
-    # Cache SMS balance to prevent slow external API calls on every page load
-    sms_balance = cache.get('sms_balance')
-    if sms_balance is None:
-        try:
-            sms_api = TextSMSAPI()
-            sms_balance = sms_api.get_balance()
-            cache.set('sms_balance', sms_balance, 300) # Cache for 5 minutes
-        except Exception:
-            sms_balance = "N/A"
-    
-    # Cache heavy database counts
-    students_count = cache.get('active_students_count')
-    if students_count is None:
-        students_count = Student.objects.filter(studentprofile__status='Active').count()
-        cache.set('active_students_count', students_count, 900) # Cache for 15 minutes
-        
+
     guardians_count = cache.get('unique_guardians_count')
     if guardians_count is None:
-        guardians_count = MyUser.objects.filter(students__isnull=False).distinct().count()
-        cache.set('unique_guardians_count', guardians_count, 900) # Cache for 15 minutes
+        guardians_count = MyUser.objects.filter(
+            students__isnull=False,
+            phone_number__isnull=False,
+        ).exclude(phone_number='').distinct().count()
+        cache.set('unique_guardians_count', guardians_count, 900)
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -139,18 +99,11 @@ def notification_dashboard(request):
 
     return render(request, 'communication/dashboard.html', {
         'notifications': notifications,
-        'sms_logs': sms_logs_display,
-        'sms_balance': sms_balance,
-        'students_count': students_count,
         'guardians_count': guardians_count,
         'schools': schools,
         'grades': grades,
         'target_choices': Notification.TARGET_CHOICES,
         'search_query': search_query,
-        'status_filter': status_filter,
-        'date_from': date_from,
-        'date_to': date_to,
-        'total_logs_count': sms_logs.count()
     })
 
 @login_required
@@ -284,6 +237,45 @@ def get_recipients_count(request):
         
     guardians_count = MyUser.objects.filter(students__in=students, phone_number__isnull=False).exclude(phone_number='').distinct().count()
     return JsonResponse({'guardians_count': guardians_count})
+
+
+@login_required
+def get_broadcast_sms_logs(request, pk):
+    """Return SMS delivery logs for a broadcast, optionally filtered by status."""
+    notification = get_object_or_404(Notification, pk=pk)
+    status_filter = request.GET.get('status', '').strip()
+
+    logs_qs = notification.sms_logs.order_by('-timestamp')
+    if status_filter:
+        logs_qs = logs_qs.filter(status=status_filter)
+
+    total_matching = logs_qs.count()
+    logs = logs_qs[:200]
+
+    status_counts = dict(
+        notification.sms_logs.values('status').annotate(c=Count('id')).values_list('status', 'c')
+    )
+
+    return JsonResponse({
+        'logs': [
+            {
+                'recipient': log.recipient,
+                'status': log.status,
+                'timestamp': log.timestamp.strftime('%b %d, %Y • %H:%M'),
+                'response_description': (log.response_description or '')[:120],
+                'message_id': log.message_id or '',
+            }
+            for log in logs
+        ],
+        'total_matching': total_matching,
+        'shown': len(logs),
+        'counts': {
+            'all': sum(status_counts.values()),
+            'Success': status_counts.get('Success', 0),
+            'Failed': status_counts.get('Failed', 0),
+            'Pending': status_counts.get('Pending', 0),
+        },
+    })
 
 
 @login_required

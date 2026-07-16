@@ -9,6 +9,7 @@ Pillow
 openpyxl
 pandas
 python-dotenv
-
+cryptography
 
 django-two-factor-auth[phonenumbers,qrcode]
+

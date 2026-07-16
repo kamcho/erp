@@ -9,6 +9,7 @@ urlpatterns = [
     path('payments/', views.payment_notifications_list, name='payment-notifications'),
     path('my-notifications/', views.guardian_notification_list, name='guardian-notifications'),
     path('ajax/recipients-count/', views.get_recipients_count, name='recipients-count'),
+    path('ajax/broadcast-logs/<int:pk>/', views.get_broadcast_sms_logs, name='broadcast-logs'),
     path('send-results/', views.send_results_sms, name='send-results'),
     path('resend/<int:pk>/', views.resend_notification, name='resend-notification'),
     path('attendance-logs/', views.attendance_sms_logs, name='attendance-sms-logs'),

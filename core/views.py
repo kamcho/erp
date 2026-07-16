@@ -53,7 +53,10 @@ class DashboardView(LoginRequiredMixin, ListView):
         return super().dispatch(request, *args, **kwargs)
     
     def get_queryset(self):
-        queryset = Student.objects.all().select_related('studentprofile__school').order_by('-joined_date')
+        queryset = Student.objects.all().select_related(
+            'studentprofile__school',
+            'studentprofile__class_id__grade',
+        ).order_by('-joined_date')
         
         # Filter by school if user is linked to one and is not a superuser
         if not self.request.user.is_superuser and self.request.user.school:

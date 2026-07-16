@@ -139,14 +139,15 @@ else:
 # Production Security Settings (Enabled only in production)
 if ENVIRONMENT != 'dev':
     SECURE_SSL_REDIRECT = _env_bool('SECURE_SSL_REDIRECT', True)
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = _env_bool('SESSION_COOKIE_SECURE', SECURE_SSL_REDIRECT)
+    CSRF_COOKIE_SECURE = _env_bool('CSRF_COOKIE_SECURE', SECURE_SSL_REDIRECT)
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     # HSTS settings (Only enable after verifying SSL works perfectly)
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
 
 
 # Password validation
