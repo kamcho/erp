@@ -14,3 +14,4 @@ venv/
 
 # Backups folder
 backups/
+.env.example
