@@ -5767,6 +5767,116 @@ def finance_dashboard(request):
         'subtitle': 'Track payments, payroll, and revenue analytics'
     })
 
+
+@login_required
+def stream_fee_balances(request):
+    """Students and fee balances grouped / filtered by stream (class)."""
+    user = request.user
+    allowed_roles = ['Admin', 'Accountant', 'Receptionist']
+    if user.role not in allowed_roles and not user.is_superuser:
+        messages.error(request, "You do not have permission to view stream fee balances.")
+        return redirect('core:dashboard')
+
+    school_id = request.GET.get('school', '')
+    grade_id = request.GET.get('grade', '')
+    class_id = request.GET.get('class', '')
+    balance_filter = request.GET.get('balance', '')
+    search_query = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', 'Active')
+
+    if not user.is_superuser and user.school:
+        schools = School.objects.filter(id=user.school.id)
+        school_id = str(user.school.id)
+    else:
+        schools = School.objects.all().order_by('name')
+
+    grades = Grade.objects.all()
+    classes_qs = Class.objects.select_related('grade', 'school').order_by(
+        'school__name', 'grade__id', 'name'
+    )
+    if school_id:
+        classes_qs = classes_qs.filter(school_id=school_id)
+    if grade_id:
+        classes_qs = classes_qs.filter(grade_id=grade_id)
+
+    profiles = StudentProfile.objects.select_related(
+        'student', 'school', 'class_id', 'class_id__grade'
+    ).filter(class_id__isnull=False)
+
+    if school_id:
+        profiles = profiles.filter(school_id=school_id)
+    if grade_id:
+        profiles = profiles.filter(class_id__grade_id=grade_id)
+    if class_id:
+        profiles = profiles.filter(class_id_id=class_id)
+    if status_filter:
+        profiles = profiles.filter(status=status_filter)
+    if search_query:
+        for part in search_query.split():
+            profiles = profiles.filter(
+                Q(student__first_name__icontains=part) |
+                Q(student__middle_name__icontains=part) |
+                Q(student__last_name__icontains=part) |
+                Q(student__adm_no__icontains=part)
+            )
+    if balance_filter == 'positive':
+        profiles = profiles.filter(fee_balance__gt=0)
+    elif balance_filter == 'negative':
+        profiles = profiles.filter(fee_balance__lt=0)
+    elif balance_filter == 'zero':
+        profiles = profiles.filter(fee_balance=0)
+
+    stream_summaries = list(
+        profiles.values(
+            'class_id',
+            'class_id__name',
+            'class_id__grade__name',
+            'school__name',
+            'school_id',
+        ).annotate(
+            student_count=Count('id'),
+            total_balance=Sum('fee_balance'),
+            arrears_count=Count('id', filter=Q(fee_balance__gt=0)),
+            credit_count=Count('id', filter=Q(fee_balance__lt=0)),
+            cleared_count=Count('id', filter=Q(fee_balance=0)),
+            arrears_total=Sum('fee_balance', filter=Q(fee_balance__gt=0)),
+            credit_total=Sum('fee_balance', filter=Q(fee_balance__lt=0)),
+        ).order_by('school__name', 'class_id__grade__id', 'class_id__name')
+    )
+
+    totals = profiles.aggregate(
+        students=Count('id'),
+        balance=Sum('fee_balance'),
+        arrears=Sum('fee_balance', filter=Q(fee_balance__gt=0)),
+        credit=Sum('fee_balance', filter=Q(fee_balance__lt=0)),
+    )
+
+    students = profiles.order_by(
+        'school__name',
+        'class_id__grade__id',
+        'class_id__name',
+        'student__first_name',
+        'student__last_name',
+    )
+
+    paginator = Paginator(students, 75)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'core/stream_fee_balances.html', {
+        'schools': schools,
+        'grades': grades,
+        'classes': classes_qs,
+        'stream_summaries': stream_summaries,
+        'students': page_obj,
+        'totals': totals,
+        'selected_school': school_id,
+        'selected_grade': grade_id,
+        'selected_class': class_id,
+        'selected_balance': balance_filter,
+        'selected_status': status_filter,
+        'search_query': search_query,
+    })
+
 @login_required
 def system_control_dashboard(request):
     """ Central dashboard for system-wide configurations and control. """

@@ -48,6 +48,21 @@
         </div>
     </a>
 
+    <!-- Stream Fee Balances Card -->
+    <a href="{% url 'core:stream-fee-balances' %}" class="group bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400 group-hover:bg-violet-600 group-hover:text-white transition-all shadow-sm border border-violet-100 dark:border-violet-800/50">
+                <i class="fas fa-chalkboard text-sm"></i>
+            </div>
+            <h3 class="text-[17px] font-extrabold text-slate-800 dark:text-white tracking-tight">Stream Balances</h3>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">View students and fee balances by class stream — Amber, Indigo, Cheetah, Tiger, and pre-primary.</p>
+        <div class="text-[12px] text-violet-500 font-bold flex items-center gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <span>Open Stream Ledger</span>
+            <i class="fas fa-arrow-right text-[10px] transform group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+
     <!-- Auxiliary Charges Card -->
     <a href="{% url 'accounts:auxiliary-charges-list' %}" class="group bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
         <div class="flex items-center gap-4 mb-4">

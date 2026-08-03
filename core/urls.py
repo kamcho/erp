@@ -60,6 +60,7 @@ urlpatterns = [
     path('reports/', views.ReportDashboardView.as_view(), name='reports'),
     path('operations/', views.operations_dashboard, name='operations'),
     path('finance/', views.finance_dashboard, name='finance'),
+    path('finance/stream-balances/', views.stream_fee_balances, name='stream-fee-balances'),
     path('system-control/', views.system_control_dashboard, name='system-control'),
     
     # Expense Management
