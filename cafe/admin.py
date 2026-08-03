@@ -7,6 +7,8 @@ class SchoolChargeAdmin(admin.ModelAdmin):
     list_display = ("name", "school", "amount", "created_at")
     list_filter = ("school", "grades")
     search_fields = ("name", "school__name")
+
+    
     filter_horizontal = ("grades",)
 
 
