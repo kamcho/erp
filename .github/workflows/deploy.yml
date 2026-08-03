@@ -18,9 +18,13 @@ jobs:
           port: 22
           script: |
             cd /var/www/excel-schools
-            git pull origin main
+            git fetch origin main
+            # Discard local server edits so CI deploys are never blocked
+            git reset --hard origin/main
+            git clean -fd -e venv -e media -e staticfiles -e .env -e '*.sqlite3'
             source venv/bin/activate
-            python manage.py makemigrations
-            python manage.py migrate
+            python manage.py migrate --noinput
             python manage.py collectstatic --noinput
             sudo systemctl restart gunicorn
+            git log -1 --oneline
+            systemctl is-active gunicorn
