@@ -5,8 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Excel SMS{% endblock %}</title>
-    <!-- Google Fonts: Outfit -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts: Quicksand (HMS typeface) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
@@ -24,12 +26,26 @@
                         'sidebar-hover': '#f8fafc',
                     },
                     fontFamily: {
-                        sans: ['Outfit', 'sans-serif'],
+                        sans: ['Quicksand', 'Segoe UI', 'Tahoma', 'Geneva', 'Verdana', 'sans-serif'],
+                        outfit: ['Quicksand', 'Segoe UI', 'Tahoma', 'Geneva', 'Verdana', 'sans-serif'],
                     },
                 }
             }
         }
     </script>
+    <style>
+        :root {
+            --font-sans: 'Quicksand', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        html, body {
+            font-family: var(--font-sans);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .font-outfit {
+            font-family: var(--font-sans);
+        }
+    </style>
     <style type="text/tailwindcss">
         @layer components {
             .menu-item {

@@ -10,7 +10,7 @@
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-    .font-outfit { font-family: 'Outfit', sans-serif; }
+    .font-outfit { font-family: 'Quicksand', sans-serif; }
 </style>
 {% endblock %}
 
@@ -250,7 +250,7 @@
     const trendData = {{ monthly_trends_json|safe|default:"[]" }};
     const serviceData = {{ service_stats_json|safe|default:"[]" }};
 
-    Chart.defaults.font.family = "'Inter', 'Outfit', sans-serif";
+    Chart.defaults.font.family = "'Quicksand', sans-serif";
     Chart.defaults.color = '#94a3b8';
 
     // 1. Revenue Trends Line Chart
