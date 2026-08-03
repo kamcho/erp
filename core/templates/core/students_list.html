@@ -68,24 +68,67 @@
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Compact stats -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="bg-white border border-slate-200 rounded-xl px-4 py-3.5">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total</p>
-            <p class="text-2xl font-extrabold text-slate-800 mt-0.5">{{ stat_total }}</p>
+<div class="space-y-8">
+    <!-- Premium Stat Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Total Students -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500">
+                    <i class="fas fa-users text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-slate-800 dark:text-white">{{ stat_total }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Total enrollment</p>
+            <div class="text-[12px] text-indigo-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <i class="fas fa-database text-[10px]"></i>
+                <span>Full Directory Count</span>
+            </div>
         </div>
-        <div class="bg-white border border-slate-200 rounded-xl px-4 py-3.5">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-500">Active</p>
-            <p class="text-2xl font-extrabold text-emerald-600 mt-0.5">{{ stat_active }}</p>
+
+        <!-- Active Students -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-500">
+                    <i class="fas fa-check-circle text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-emerald-600">{{ stat_active }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Active students</p>
+            <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <i class="fas fa-check text-[10px]"></i>
+                <span>Currently in Session</span>
+            </div>
         </div>
-        <div class="bg-white border border-slate-200 rounded-xl px-4 py-3.5">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-sky-500">Graduated</p>
-            <p class="text-2xl font-extrabold text-sky-600 mt-0.5">{{ stat_graduated }}</p>
+
+        <!-- Graduated -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-sky-50 dark:bg-sky-900/30 flex items-center justify-center text-sky-500">
+                    <i class="fas fa-graduation-cap text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-sky-600">{{ stat_graduated }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Graduated alumni</p>
+            <div class="text-[12px] text-sky-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <i class="fas fa-award text-[10px]"></i>
+                <span>Academic Completers</span>
+            </div>
         </div>
-        <div class="bg-white border border-slate-200 rounded-xl px-4 py-3.5">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-rose-400">Inactive</p>
-            <p class="text-2xl font-extrabold text-rose-500 mt-0.5">{{ stat_inactive }}</p>
+
+        <!-- Inactive -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center text-rose-500">
+                    <i class="fas fa-user-slash text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-rose-500">{{ stat_inactive }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Inactive / Left</p>
+            <div class="text-[12px] text-rose-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <i class="fas fa-exclamation-circle text-[10px]"></i>
+                <span>Dropped / Transferred</span>
+            </div>
         </div>
     </div>
 
