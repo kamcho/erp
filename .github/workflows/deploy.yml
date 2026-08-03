@@ -9,12 +9,12 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy using SSH password
+      - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: '137.184.137.222'
           username: 'root'
-          password: ${{ secrets.SSH_PASSWORD }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
             cd /var/www/excel-schools
