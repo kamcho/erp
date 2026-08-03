@@ -5855,8 +5855,7 @@ def stream_fee_balances(request):
         'school__name',
         'class_id__grade__id',
         'class_id__name',
-        'student__first_name',
-        'student__last_name',
+        'student__adm_no',
     )
 
     paginator = Paginator(students, 75)
