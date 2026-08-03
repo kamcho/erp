@@ -37,10 +37,11 @@ class StudentForm(BaseStyledForm):
 class StudentProfileForm(BaseStyledForm):
     class Meta:
         model = StudentProfile
-        fields = ['class_id', 'school', 'fee_balance', 'discipline']
+        fields = ['class_id', 'school', 'fee_balance', 'discipline', 'status']
         widgets = {
             'fee_balance': forms.NumberInput(attrs={'min': 0, 'placeholder': '0'}),
             'discipline': forms.NumberInput(attrs={'min': 0, 'max': 100}),
+            'status': forms.Select(choices=StudentProfile.STATUS_CHOICES),
         }
 
     def __init__(self, *args, **kwargs):
@@ -48,6 +49,7 @@ class StudentProfileForm(BaseStyledForm):
         self.fields['school'].queryset = School.objects.all()
         self.fields['school'].empty_label = "Select School"
         self.fields['fee_balance'].label = "Opening Balance"
+        self.fields['status'].label = "Enrollment Status"
         # Show grade alongside class name in the dropdown, e.g. "East A (Grade 4)"
         self.fields['class_id'].queryset = Class.objects.all().select_related('grade')
         self.fields['class_id'].label_from_instance = lambda obj: f"{obj.name} ({obj.grade.name})"

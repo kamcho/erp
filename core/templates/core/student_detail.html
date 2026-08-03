@@ -312,10 +312,26 @@
                         <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest block">Enrolled</span>
                         <p class="text-xs font-bold text-slate-700">{{ student.joined_date|date:"M Y" }}</p>
                     </div>
+                    <!-- Status -->
+                    <div class="space-y-1">
+                        <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest block">Status</span>
+                        <p class="text-xs font-bold uppercase flex items-center gap-1.5
+                            {% if profile.status == 'Active' %}text-emerald-600
+                            {% elif profile.status == 'Graduated' %}text-indigo-600
+                            {% elif profile.status == 'Transferred' %}text-amber-600
+                            {% else %}text-slate-500{% endif %}">
+                            <span class="w-1.5 h-1.5 rounded-full
+                                {% if profile.status == 'Active' %}bg-emerald-500
+                                {% elif profile.status == 'Graduated' %}bg-indigo-500
+                                {% elif profile.status == 'Transferred' %}bg-amber-500
+                                {% else %}bg-slate-400{% endif %}"></span>
+                            {{ profile.status|default:"Active" }}
+                        </p>
+                    </div>
                     <!-- Fee Category -->
                     <div class="space-y-1">
                         <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest block">Billing</span>
-                        <p class="text-xs font-bold text-indigo-600 uppercase">{{ profile.fee_category|title }}</p>
+                        <p class="text-xs font-bold text-indigo-600 uppercase">{{ student.get_fee_category_display|default:student.fee_category|title }}</p>
                     </div>
                     <!-- Transport -->
                     <div class="space-y-1">

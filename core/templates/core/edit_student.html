@@ -121,7 +121,15 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Enrollment Status</label>
+                    {{ profile_form.status }}
+                    {% if profile_form.status.errors %}
+                    <p class="text-[10px] font-bold text-rose-500">{{ profile_form.status.errors|striptags }}</p>
+                    {% endif %}
+                    <p class="text-[9px] font-bold text-slate-400 italic">Active · Graduated · Transferred · Inactive</p>
+                </div>
                 <div class="space-y-2">
                     <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Fee Balance (KES)</label>
                     <div class="opacity-75 grayscale-[0.5] cursor-not-allowed">
