@@ -32,7 +32,7 @@
         <div>
             <h2 class="text-3xl font-black text-slate-900 tracking-tight mb-4">You Don't Have Permission</h2>
             <p class="text-slate-500 text-base leading-relaxed mb-8">
-                Sorry, you are not authorized to view this student's profile. If you believe this is an error, please contact the school administration to have this student linked to your account.
+                {{ deny_message|default:"Sorry, you are not authorized to view this student's profile. If you believe this is an error, please contact the school administration." }}
             </p>
             
             <a href="{% url 'core:dashboard' %}" class="inline-flex items-center justify-center h-14 px-8 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-slate-900/20 hover:bg-slate-800 hover:scale-105 transition-all group">

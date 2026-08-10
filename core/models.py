@@ -66,7 +66,7 @@ class Student(models.Model):
     first_name = models.CharField(max_length=100)
     middle_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
-    adm_no = models.CharField("Admission Number", max_length=100)
+    adm_no = models.CharField("Admission Number", max_length=100, blank=True, null=True)
     nemis_number = models.CharField("NEMIS Number", max_length=50, blank=True, null=True, unique=True)
     date_of_birth = models.DateField()
     joined_date = models.DateField()

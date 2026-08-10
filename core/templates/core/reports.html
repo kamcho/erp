@@ -256,6 +256,36 @@
         </div>
     </div>
 
+    <!-- Boarder / Day summary -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-sky-50 flex items-center justify-center">
+                    <i class="fas fa-sun text-sky-500 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-sky-600">{{ day_students|default:0 }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Day scholars</p>
+            <div class="text-[12px] text-sky-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+                <i class="fas fa-users text-[10px]"></i>
+                <span>Combined across filtered schools</span>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-violet-50 flex items-center justify-center">
+                    <i class="fas fa-bed text-violet-500 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-violet-600">{{ boarder_students|default:0 }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Boarders</p>
+            <div class="text-[12px] text-violet-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+                <i class="fas fa-home text-[10px]"></i>
+                <span>Combined across filtered schools</span>
+            </div>
+        </div>
+    </div>
+
     <!-- Charts -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
@@ -275,6 +305,73 @@
             <div class="h-64 relative">
                 <canvas id="gradeChart"></canvas>
             </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-[15px] font-bold text-slate-800">Boarder / Day Combined</h3>
+            </div>
+            <div class="h-64 relative">
+                <canvas id="residenceChart"></canvas>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-[15px] font-bold text-slate-800">Boarder / Day by School</h3>
+            </div>
+            <div class="h-64 relative">
+                <canvas id="schoolResidenceChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+        <div class="p-6 border-b border-slate-100">
+            <h3 class="text-[15px] font-bold text-slate-800">Boarder / Day by School</h3>
+            <p class="text-[12px] font-medium text-slate-500 mt-0.5">Individual school breakdown for the current filters</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-100">
+                        <th class="py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest">School</th>
+                        <th class="py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">Day</th>
+                        <th class="py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">Boarder</th>
+                        <th class="py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">Total</th>
+                        <th class="py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">Boarder %</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for row in school_residence_distribution %}
+                    <tr class="hover:bg-slate-50/60">
+                        <td class="py-4 px-6 text-sm font-bold text-slate-800">{{ row.school }}</td>
+                        <td class="py-4 px-6 text-sm font-bold text-sky-600 text-right">{{ row.day }}</td>
+                        <td class="py-4 px-6 text-sm font-bold text-violet-600 text-right">{{ row.boarder }}</td>
+                        <td class="py-4 px-6 text-sm font-black text-slate-700 text-right">{{ row.total }}</td>
+                        <td class="py-4 px-6 text-xs font-bold text-slate-500 text-right">
+                            {% if row.total %}{% widthratio row.boarder row.total 100 %}%{% else %}0%{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="py-10 text-center text-slate-400 text-sm">No school distribution available.</td>
+                    </tr>
+                    {% endfor %}
+                    {% if school_residence_distribution %}
+                    <tr class="bg-slate-50 font-black">
+                        <td class="py-4 px-6 text-sm text-slate-800">Combined</td>
+                        <td class="py-4 px-6 text-sm text-sky-700 text-right">{{ day_students|default:0 }}</td>
+                        <td class="py-4 px-6 text-sm text-violet-700 text-right">{{ boarder_students|default:0 }}</td>
+                        <td class="py-4 px-6 text-sm text-slate-800 text-right">{{ total_students }}</td>
+                        <td class="py-4 px-6 text-xs text-slate-600 text-right">
+                            {% if total_students %}{% widthratio boarder_students total_students 100 %}%{% else %}0%{% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -834,6 +931,88 @@
                                 font: { size: 10 }, 
                                 beginAtZero: true,
                                 stepSize: 1,
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        const residenceCtx = document.getElementById('residenceChart');
+        if (residenceCtx) {
+            new Chart(residenceCtx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Day', 'Boarder'],
+                    datasets: [{
+                        data: [{{ day_students|default:0 }}, {{ boarder_students|default:0 }}],
+                        backgroundColor: ['#0ea5e9', '#8b5cf6'],
+                        borderWidth: 6,
+                        borderColor: '#fff',
+                        hoverOffset: 4,
+                        cutout: '70%'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                font: { family: "'Quicksand', sans-serif", weight: 'bold', size: 10 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        const schoolResidenceCtx = document.getElementById('schoolResidenceChart');
+        if (schoolResidenceCtx) {
+            new Chart(schoolResidenceCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: [{% for row in school_residence_distribution %}'{{ row.school|escapejs }}',{% endfor %}],
+                    datasets: [
+                        {
+                            label: 'Day',
+                            data: [{% for row in school_residence_distribution %}{{ row.day }},{% endfor %}],
+                            backgroundColor: '#0ea5e9',
+                            borderRadius: 4,
+                            barThickness: 14
+                        },
+                        {
+                            label: 'Boarder',
+                            data: [{% for row in school_residence_distribution %}{{ row.boarder }},{% endfor %}],
+                            backgroundColor: '#8b5cf6',
+                            borderRadius: 4,
+                            barThickness: 14
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                font: { family: "'Quicksand', sans-serif", weight: 'bold', size: 10 }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                        y: {
+                            grid: { color: '#f1f5f9', drawBorder: false },
+                            ticks: {
+                                font: { size: 10 },
+                                beginAtZero: true,
                                 precision: 0
                             }
                         }

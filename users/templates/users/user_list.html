@@ -66,13 +66,13 @@
     <!-- Filters & Search -->
     <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
         <form method="get" class="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div class="md:col-span-6 relative group">
+            <div class="md:col-span-4 relative group">
                 <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"></i>
                 <input type="text" name="q" value="{{ q }}" 
                        class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                        placeholder="Search by name, email or phone...">
             </div>
-            <div class="md:col-span-4">
+            <div class="md:col-span-3">
                 <select name="role" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none">
                     <option value="">All Roles</option>
                     {% for val, label in roles %}
@@ -80,12 +80,26 @@
                     {% endfor %}
                 </select>
             </div>
+            <div class="md:col-span-3">
+                <select name="school" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none">
+                    <option value="">All Schools</option>
+                    {% for school in schools %}
+                    <option value="{{ school.id }}" {% if selected_school == school.id|stringformat:"s" %}selected{% endif %}>{{ school.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div class="md:col-span-2">
-                <button type="submit" class="w-full h-full bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all">
+                <button type="submit" class="w-full h-full min-h-[48px] bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all">
                     Filter
                 </button>
             </div>
         </form>
+        {% if selected_school and selected_role == 'Guardian' %}
+        <p class="mt-3 text-[11px] font-semibold text-slate-400">
+            <i class="fas fa-info-circle mr-1"></i>
+            Showing guardians with linked learners in the selected school.
+        </p>
+        {% endif %}
     </div>
 
     <!-- User List Table -->
@@ -167,7 +181,7 @@
     {% if is_paginated %}
     <div class="flex items-center justify-center gap-2">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_role %}&role={{ selected_role }}{% endif %}" 
+        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_role %}&role={{ selected_role }}{% endif %}{% if selected_school %}&school={{ selected_school }}{% endif %}" 
            class="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all">
             <i class="fas fa-chevron-left text-xs"></i>
         </a>
@@ -178,7 +192,7 @@
         </div>
 
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_role %}&role={{ selected_role }}{% endif %}" 
+        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_role %}&role={{ selected_role }}{% endif %}{% if selected_school %}&school={{ selected_school }}{% endif %}" 
            class="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all">
             <i class="fas fa-chevron-right text-xs"></i>
         </a>

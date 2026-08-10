@@ -351,11 +351,14 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
         ).select_related('grade', 'school')
 
         unified_assignments = []
+        class_roles = {}
         for a in assignments:
             unified_assignments.append({
                 'class_obj': a.class_id,
                 'role': a.subject.name if a.subject else 'Subject Teacher',
             })
+            class_roles.setdefault(a.class_id.id, {'class_obj': a.class_id, 'roles': set()})
+            class_roles[a.class_id.id]['roles'].add(a.subject.name if a.subject else 'Subject Teacher')
             
         for c in role_classes:
             roles = []
@@ -369,9 +372,30 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
                 'class_obj': c,
                 'role': ' & '.join(roles),
             })
+            class_roles.setdefault(c.id, {'class_obj': c, 'roles': set()})
+            class_roles[c.id]['roles'].update(roles)
+
+        student_counts = {
+            row['class_id']: row['count']
+            for row in StudentProfile.objects.filter(class_id__in=[cid for cid in class_roles.keys()])
+            .values('class_id')
+            .annotate(count=Count('id'))
+        }
+        teacher_class_cards = []
+        for cid, info in class_roles.items():
+            roles_list = sorted(info['roles'])
+            teacher_class_cards.append({
+                'class_obj': info['class_obj'],
+                'roles': roles_list,
+                'role_label': ' · '.join(roles_list) if roles_list else 'Assigned',
+                'student_count': student_counts.get(cid, 0),
+                'is_class_teacher': 'Class Teacher' in info['roles'],
+            })
+        teacher_class_cards.sort(key=lambda x: (x['class_obj'].grade.name if x['class_obj'].grade else '', x['class_obj'].name))
         
         context['assignments'] = assignments
         context['all_assignments'] = unified_assignments
+        context['teacher_class_cards'] = teacher_class_cards
         context['total_classes'] = len(classes_assigned)
         context['total_students'] = total_unique_students
         context['total_subjects'] = len(subjects_taught)
@@ -1337,22 +1361,71 @@ def fee_structure_preview(request):
         'amount': str(amount),
     })
 
-class StudentDetailView(DetailView):
+class StudentDetailView(LoginRequiredMixin, DetailView):
     model = Student
     template_name = 'core/student_detail.html'
     context_object_name = 'student'
 
     def dispatch(self, request, *args, **kwargs):
-        # Allow Superusers and non-Guardians (Admins, Teachers, etc)
-        if request.user.is_superuser or request.user.role != 'Guardian':
-            return super().dispatch(request, *args, **kwargs)
-            
-        # For Guardians, verify the student is in their 'students' many-to-many field
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
         student_id = kwargs.get('pk')
-        if not request.user.students.filter(id=student_id).exists():
-            return render(request, 'core/403_guardian.html', status=403)
-            
-        return super().dispatch(request, *args, **kwargs)
+        role = getattr(request.user, 'role', None)
+
+        # Full access for superusers and school admin staff
+        if request.user.is_superuser or role in ('Admin', 'Receptionist', 'Accountant'):
+            return super().dispatch(request, *args, **kwargs)
+
+        if role == 'Guardian':
+            if not request.user.students.filter(id=student_id).exists():
+                return render(
+                    request,
+                    'core/403_guardian.html',
+                    {
+                        'deny_message': (
+                            'Sorry, you are not authorized to view this learner. '
+                            'Only guardians linked to this student can open their profile.'
+                        ),
+                    },
+                    status=403,
+                )
+            return super().dispatch(request, *args, **kwargs)
+
+        if role == 'Teacher':
+            profile = (
+                StudentProfile.objects
+                .filter(student_id=student_id)
+                .select_related('class_id')
+                .first()
+            )
+            class_obj = profile.class_id if profile else None
+            if not class_obj or class_obj.class_teacher_id != request.user.id:
+                return render(
+                    request,
+                    'core/403_guardian.html',
+                    {
+                        'deny_message': (
+                            'Sorry, you are not authorized to view this learner. '
+                            'Only the assigned class teacher for their class can open this profile.'
+                        ),
+                    },
+                    status=403,
+                )
+            return super().dispatch(request, *args, **kwargs)
+
+        # Anyone else linked via the students M2M (e.g. staff also attached as guardian)
+        if request.user.students.filter(id=student_id).exists():
+            return super().dispatch(request, *args, **kwargs)
+
+        return render(
+            request,
+            'core/403_guardian.html',
+            {
+                'deny_message': 'Sorry, you are not authorized to view this learner.',
+            },
+            status=403,
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1425,7 +1498,11 @@ class StudentDetailView(DetailView):
             scores_raw = ExamSUbjectScore.objects.filter(
                 student=self.object, 
                 paper__exam_subject__exam=selected_exam
-            ).select_related('paper__exam_subject__subject', 'paper__exam_subject')
+            ).select_related(
+                'paper__exam_subject__subject',
+                'paper__exam_subject__subject__course',
+                'paper__exam_subject',
+            )
             
             # 2. Aggregate papers to subjects
             subject_results = {}
@@ -1542,6 +1619,12 @@ class StudentDetailView(DetailView):
             scores = []
             
         context['exam_scores'] = scores
+
+        from core.cbe_pathways import infer_cbe_pathway
+        pathway_insight = infer_cbe_pathway(scores)
+        if selected_exam:
+            pathway_insight['exam_label'] = selected_exam.name
+        context['pathway_insight'] = pathway_insight
         if scores:
             context['student_average'] = round(sum(s.percentage for s in scores) / len(scores), 1)
             context['avg_points'] = round(sum(s.points for s in scores) / len(scores), 1)
@@ -1905,6 +1988,10 @@ class StudentDetailView(DetailView):
         context['can_edit_status'] = self.request.user.role == 'Receptionist'
         # Only Receptionist can make payments and update student status
         context['can_make_payments'] = self.request.user.role == 'Receptionist'
+        context['can_link_users'] = (
+            self.request.user.is_superuser
+            or self.request.user.role in ['Admin', 'Receptionist']
+        )
         context['fee_categories'] = Student.FEE_CATEGORIES
 
         # active lunch subscription
@@ -2204,9 +2291,12 @@ class ClassDetailView(LoginRequiredMixin, DetailView):
         # Get students in this class
         context['students'] = StudentProfile.objects.filter(
             class_id=self.object
-        ).select_related('student', 'school').order_by('student__first_name', 'student__last_name')
+        ).select_related('student', 'school').prefetch_related('student__guardians').order_by(
+            'student__first_name', 'student__last_name'
+        )
         
         context['student_count'] = context['students'].count()
+        context['can_roster_quick_edit'] = _roster_quick_edit_allowed(self.request.user, self.object)
         
         # Calculate statistics
         male_count = context['students'].filter(student__gender='male').count()
@@ -5007,6 +5097,45 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             
             # Distribution by Grade (for Chart) - Unaffected by search query
             context['grade_distribution'] = list(queryset.values('class_id__grade__name').annotate(count=Count('id')).order_by('-count'))
+
+            # Boarder / Day distribution (combined + per school)
+            from django.db.models import CharField, Value
+            residence_qs = queryset.annotate(
+                residence=Case(
+                    When(
+                        student__fee_category__in=['boarder', 'staff_boarder'],
+                        then=Value('boarder'),
+                    ),
+                    default=Value('day'),
+                    output_field=CharField(),
+                )
+            )
+            residence_totals = {
+                row['residence']: row['count']
+                for row in residence_qs.values('residence').annotate(count=Count('id'))
+            }
+            context['day_students'] = residence_totals.get('day', 0)
+            context['boarder_students'] = residence_totals.get('boarder', 0)
+            context['residence_distribution'] = [
+                {'label': 'Day', 'count': context['day_students']},
+                {'label': 'Boarder', 'count': context['boarder_students']},
+            ]
+
+            school_rows = list(
+                residence_qs.values('school__name', 'residence')
+                .annotate(count=Count('id'))
+                .order_by('school__name', 'residence')
+            )
+            school_map = {}
+            for row in school_rows:
+                name = row['school__name'] or 'Unassigned'
+                entry = school_map.setdefault(name, {'school': name, 'day': 0, 'boarder': 0, 'total': 0})
+                key = row['residence'] if row['residence'] in ('day', 'boarder') else 'day'
+                entry[key] += row['count']
+                entry['total'] += row['count']
+            context['school_residence_distribution'] = sorted(
+                school_map.values(), key=lambda item: (-item['total'], item['school'])
+            )
             
             # Table results - Affected by search query
             table_queryset = queryset
@@ -6151,6 +6280,339 @@ def logs_list(request):
 
 
 @login_required
+def user_search_api(request):
+    """Search users that can be linked to a student."""
+    if not request.user.is_superuser and request.user.role not in ['Admin', 'Receptionist']:
+        return JsonResponse({'results': []}, status=403)
+
+    query = request.GET.get('q', '').strip()
+    exclude_student = request.GET.get('exclude_student', '').strip()
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+
+    users = MyUser.objects.filter(is_active=True).order_by('first_name', 'last_name')
+    if not request.user.is_superuser and request.user.school:
+        users = users.filter(Q(school=request.user.school) | Q(school__isnull=True) | Q(role='Guardian'))
+
+    for part in query.split():
+        users = users.filter(
+            Q(first_name__icontains=part) |
+            Q(last_name__icontains=part) |
+            Q(phone_number__icontains=part) |
+            Q(email__icontains=part)
+        )
+
+    if exclude_student:
+        users = users.exclude(students__id=exclude_student)
+
+    results = []
+    for u in users[:12]:
+        results.append({
+            'id': u.id,
+            'name': u.get_full_name() or u.email,
+            'role': u.role,
+            'phone': u.phone_number or '',
+            'email': u.email or '',
+        })
+    return JsonResponse({'results': results})
+
+
+@login_required
+@require_POST
+def link_user_to_student(request, pk):
+    """Link an existing user to a student (M2M guardians relation)."""
+    if not request.user.is_superuser and request.user.role not in ['Admin', 'Receptionist']:
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    student = get_object_or_404(Student, pk=pk)
+    user_id = request.POST.get('user_id') or (request.body and None)
+    if not user_id:
+        try:
+            import json as _json
+            payload = _json.loads(request.body.decode() or '{}')
+            user_id = payload.get('user_id')
+        except Exception:
+            user_id = None
+
+    if not user_id:
+        return JsonResponse({'success': False, 'error': 'user_id is required'}, status=400)
+
+    user = get_object_or_404(MyUser, pk=user_id)
+    user.students.add(student)
+
+    from core.activity_log import log_activity
+    log_activity(
+        request.user, 'Linked', 'Student',
+        f'Linked user {user.get_full_name() or user.email} to {student.get_full_name()}',
+        'Student', student.pk,
+    )
+
+    return JsonResponse({
+        'success': True,
+        'user': {
+            'id': user.id,
+            'name': user.get_full_name() or user.email,
+            'role': user.role,
+            'phone': user.phone_number or '',
+            'email': user.email or '',
+        },
+    })
+
+
+def _roster_quick_edit_allowed(user, class_obj=None):
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser or getattr(user, 'role', None) == 'Receptionist':
+        return True
+    return False
+
+
+@login_required
+def roster_quick_edit_get(request, pk):
+    """Return student + linked guardians, and optionally look up a phone."""
+    student = get_object_or_404(
+        Student.objects.select_related('studentprofile__class_id').prefetch_related('guardians'),
+        pk=pk,
+    )
+    class_obj = getattr(getattr(student, 'studentprofile', None), 'class_id', None)
+    if not _roster_quick_edit_allowed(request.user, class_obj):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    phone_q = (request.GET.get('phone') or '').strip()
+    found = None
+    if phone_q:
+        phone = _normalize_phone(phone_q)
+        digits = ''.join(ch for ch in phone if ch.isdigit())
+        if 9 <= len(digits) <= 15:
+            guardian = _guardian_sync_find_guardian(phone)
+            if guardian:
+                found = {
+                    'id': guardian.id,
+                    'name': guardian.get_full_name() or guardian.email,
+                    'phone': guardian.phone_number or '',
+                    'already_linked': guardian.students.filter(id=student.id).exists(),
+                }
+
+    guardians = [{
+        'id': g.id,
+        'name': g.get_full_name() or g.email,
+        'phone': g.phone_number or '',
+    } for g in student.guardians.all()]
+
+    return JsonResponse({
+        'success': True,
+        'student': {
+            'id': student.id,
+            'name': student.get_full_name(),
+            'adm_no': student.adm_no or '',
+        },
+        'guardians': guardians,
+        'found_guardian': found,
+    })
+
+
+@login_required
+@require_POST
+def roster_quick_edit_save(request, pk):
+    """Update adm no; create or confirm-link one or more guardians by phone."""
+    from users.models import GuardianRelationship
+
+    student = get_object_or_404(
+        Student.objects.select_related('studentprofile__class_id').prefetch_related('guardians'),
+        pk=pk,
+    )
+    class_obj = getattr(getattr(student, 'studentprofile', None), 'class_id', None)
+    if not _roster_quick_edit_allowed(request.user, class_obj):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    try:
+        data = json.loads(request.body.decode() or '{}')
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
+
+    adm_no = str(data.get('adm_no') or '').strip() or None
+
+    # Prefer guardians[] payload; fall back to legacy single-guardian fields.
+    raw_guardians = data.get('guardians')
+    if isinstance(raw_guardians, list):
+        guardian_entries = []
+        for item in raw_guardians[:2]:
+            if not isinstance(item, dict):
+                continue
+            guardian_entries.append({
+                'guardian_name': str(item.get('guardian_name') or '').strip(),
+                'phone': _normalize_phone(item.get('phone')),
+                'confirm_link': item.get('confirm_link') is True,
+            })
+    else:
+        guardian_entries = [{
+            'guardian_name': str(data.get('guardian_name') or '').strip(),
+            'phone': _normalize_phone(data.get('phone')),
+            'confirm_link': data.get('confirm_link') is True,
+        }]
+
+    if adm_no:
+        clash = Student.objects.filter(adm_no__iexact=adm_no).exclude(pk=student.pk).first()
+        if clash:
+            return JsonResponse({
+                'success': False,
+                'error': f'Admission number {adm_no} is already used by {clash.get_full_name()}',
+            }, status=400)
+
+    student.adm_no = adm_no
+    student.save(update_fields=['adm_no'])
+
+    result = {
+        'success': True,
+        'adm_no': student.adm_no or '',
+        'guardian_action': None,
+        'guardian_actions': [],
+    }
+
+    seen_phones = set()
+    for idx, entry in enumerate(guardian_entries):
+        guardian_name = entry['guardian_name']
+        phone = entry['phone']
+        confirm_link = entry['confirm_link']
+
+        if not phone and not guardian_name:
+            continue
+
+        if guardian_name and not phone:
+            return JsonResponse({
+                'success': False,
+                'error': 'Guardian phone is required when a guardian name is provided',
+            }, status=400)
+
+        if not phone:
+            continue
+
+        digits = ''.join(ch for ch in phone if ch.isdigit())
+        if not (9 <= len(digits) <= 15):
+            label = 'second guardian' if idx == 1 else 'guardian'
+            return JsonResponse({
+                'success': False,
+                'error': f'Enter a valid {label} phone number',
+            }, status=400)
+
+        if phone in seen_phones:
+            return JsonResponse({
+                'success': False,
+                'error': 'Primary and second guardian must use different phone numbers',
+            }, status=400)
+        seen_phones.add(phone)
+
+        existing = _guardian_sync_find_guardian(phone)
+        if existing:
+            if not confirm_link:
+                return JsonResponse({
+                    'success': False,
+                    'needs_confirm': True,
+                    'adm_no': student.adm_no or '',
+                    'guardian_index': idx,
+                    'guardian': {
+                        'id': existing.id,
+                        'name': existing.get_full_name() or existing.email,
+                        'phone': existing.phone_number or '',
+                        'already_linked': existing.students.filter(id=student.id).exists(),
+                    },
+                    'message': (
+                        f'Phone {phone} belongs to {existing.get_full_name() or existing.email}. '
+                        'Link this guardian to the learner?'
+                    ),
+                })
+            guardian = existing
+            if guardian_name and (not guardian.first_name or not guardian.last_name):
+                g_first, g_middle, g_last = _split_person_name(guardian_name)
+                if g_middle:
+                    g_first = f'{g_first} {g_middle}'.strip()
+                if not guardian.first_name:
+                    guardian.first_name = g_first
+                if not guardian.last_name:
+                    guardian.last_name = g_last
+                guardian.save(update_fields=['first_name', 'last_name'])
+            already = guardian.students.filter(id=student.id).exists()
+            guardian.students.add(student)
+            GuardianRelationship.objects.update_or_create(
+                user=guardian,
+                student=student,
+                defaults={'relationship': 'Guardian'},
+            )
+            action = 'already_linked' if already else 'linked_existing'
+        else:
+            if not guardian_name:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Guardian name is required to create a new guardian account',
+                }, status=400)
+            guardian = _guardian_sync_create_guardian(
+                phone=phone,
+                guardian_name=guardian_name,
+                email_hint=str(student.adm_no or student.pk),
+            )
+            guardian.students.add(student)
+            GuardianRelationship.objects.update_or_create(
+                user=guardian,
+                student=student,
+                defaults={'relationship': 'Guardian'},
+            )
+            action = 'created_and_linked'
+
+        result['guardian_actions'].append(action)
+        result['guardian_action'] = action
+        result['guardian'] = {
+            'id': guardian.id,
+            'name': guardian.get_full_name() or guardian.email,
+            'phone': guardian.phone_number or '',
+        }
+
+    # Avoid stale prefetch cache after M2M link updates.
+    if hasattr(student, '_prefetched_objects_cache'):
+        student._prefetched_objects_cache.pop('guardians', None)
+
+    result['guardians'] = [{
+        'id': g.id,
+        'name': g.get_full_name() or g.email,
+        'phone': g.phone_number or '',
+    } for g in student.guardians.all()]
+
+    return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def unlink_user_from_student(request, pk):
+    """Remove a linked user from a student."""
+    if not request.user.is_superuser and request.user.role not in ['Admin', 'Receptionist']:
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    student = get_object_or_404(Student, pk=pk)
+    user_id = request.POST.get('user_id')
+    if not user_id:
+        try:
+            import json as _json
+            payload = _json.loads(request.body.decode() or '{}')
+            user_id = payload.get('user_id')
+        except Exception:
+            user_id = None
+
+    if not user_id:
+        return JsonResponse({'success': False, 'error': 'user_id is required'}, status=400)
+
+    user = get_object_or_404(MyUser, pk=user_id)
+    user.students.remove(student)
+
+    from core.activity_log import log_activity
+    log_activity(
+        request.user, 'Unlinked', 'Student',
+        f'Unlinked user {user.get_full_name() or user.email} from {student.get_full_name()}',
+        'Student', student.pk,
+    )
+
+    return JsonResponse({'success': True})
+
+
+@login_required
 def student_search_api(request):
     query = request.GET.get('q', '').strip()
     if len(query) < 2:
@@ -6171,17 +6633,24 @@ def student_search_api(request):
     
     results = []
     from django.urls import reverse
-    for s in students.select_related('studentprofile__class_id__grade')[:10]:
-        profile = getattr(s, 'studentprofile', None)
+    for s in students.select_related('studentprofile__class_id__grade', 'studentprofile__school')[:15]:
+        try:
+            profile = s.studentprofile
+        except StudentProfile.DoesNotExist:
+            profile = None
         class_name = profile.class_id.name if profile and profile.class_id else "N/A"
         grade_name = profile.class_id.grade.name if profile and profile.class_id and profile.class_id.grade else ""
         
         display_class = f"{grade_name} - {class_name}" if grade_name else class_name
         
         results.append({
+            'id': s.pk,
             'name': s.get_full_name(),
             'adm_no': s.adm_no,
             'class': display_class,
+            'school': profile.school.name if profile and profile.school else '',
+            'fee_category': s.fee_category,
+            'fee_category_label': s.get_fee_category_display(),
             'url': reverse('core:student-detail', kwargs={'pk': s.pk})
         })
 
@@ -6197,14 +6666,15 @@ class FeePaymentListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         queryset = Payment.objects.all().select_related(
-            'student__studentprofile__class_id__grade', 
+            'student__studentprofile__class_id__grade',
+            'student__studentprofile__school',
             'recorded_by'
-        ).order_by('-date_paid')
-        
+        ).order_by('-created_at', '-date_paid')
+
         # Filter by school if not superuser
         if not self.request.user.is_superuser and self.request.user.school:
             queryset = queryset.filter(student__studentprofile__school=self.request.user.school)
-        
+
         # Search filters
         search = self.request.GET.get('q')
         if search:
@@ -6214,11 +6684,971 @@ class FeePaymentListView(LoginRequiredMixin, ListView):
                 Q(student__adm_no__icontains=search) |
                 Q(reference__icontains=search)
             )
-            
+
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = 'Fee Payment History'
         context['search_query'] = self.request.GET.get('q', '')
+        can_revert = _fee_payment_revert_allowed(self.request.user)
+        context['can_revert_payments'] = can_revert
+        cutoff = timezone.now() - timedelta(hours=24)
+        for payment in context['payments']:
+            payment.can_revert = bool(
+                can_revert and payment.created_at and payment.created_at >= cutoff
+            )
         return context
+
+
+def _fee_payment_revert_allowed(user):
+    if not user.is_authenticated:
+        return False
+    return user.is_superuser or getattr(user, 'role', None) in ['Admin', 'Receptionist']
+
+
+@login_required
+@require_POST
+def revert_fee_payment(request, payment_id):
+    """
+    Undo a fee payment recorded in the last 24 hours.
+    Deleting the Payment restores fee_balance via post_delete signal.
+    """
+    if not _fee_payment_revert_allowed(request.user):
+        messages.error(request, 'You do not have permission to revert payments.')
+        return redirect('core:payment-history')
+
+    payment = get_object_or_404(
+        Payment.objects.select_related('student__studentprofile__school', 'student'),
+        pk=payment_id,
+    )
+
+    if not request.user.is_superuser and request.user.school_id:
+        school_id = getattr(getattr(getattr(payment.student, 'studentprofile', None), 'school', None), 'id', None)
+        if school_id and school_id != request.user.school_id:
+            messages.error(request, 'You can only revert payments for your school.')
+            return redirect('core:payment-history')
+
+    if not payment.created_at or payment.created_at < timezone.now() - timedelta(hours=24):
+        messages.error(request, 'Only payments recorded in the last 24 hours can be reverted.')
+        return redirect('core:payment-history')
+
+    student = payment.student
+    amount = payment.amount
+    reference = payment.reference or f'#{payment.pk}'
+    student_name = student.get_full_name()
+
+    payment.delete()  # post_delete signal adds amount back to fee_balance
+
+    from core.activity_log import log_activity
+    log_activity(
+        request.user,
+        'Reverted',
+        'Finance',
+        f'Reverted payment of KES {amount} for {student_name} (ref {reference})',
+        'Payment',
+        payment_id,
+    )
+    messages.success(
+        request,
+        f'Reverted KES {amount} for {student_name}. Amount restored to fee balance.',
+    )
+    return redirect('core:payment-history')
+
+
+def _guardian_sync_allowed(user):
+    return user.is_superuser or user.role in ['Admin', 'Receptionist']
+
+
+def _fee_category_batch_allowed(user):
+    return user.is_superuser or user.role in ['Admin', 'Accountant', 'Receptionist']
+
+
+@login_required
+def fee_category_batch_view(request):
+    from django.urls import reverse
+
+    if not _fee_category_batch_allowed(request.user):
+        messages.error(request, 'You do not have permission to change fee categories.')
+        return redirect('core:dashboard')
+
+    return render(request, 'core/fee_category_batch.html', {
+        'title': 'Fee Category Assignment',
+        'subtitle': 'Search learners, build a batch, choose fee categories, and submit when ready',
+        'fee_categories': Student.FEE_CATEGORIES,
+        'search_url': reverse('core:student-search-api'),
+        'apply_url': reverse('core:fee-category-batch-apply'),
+    })
+
+
+@login_required
+@require_POST
+def fee_category_batch_apply(request):
+    if not _fee_category_batch_allowed(request.user):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    try:
+        payload = json.loads(request.body.decode() or '{}')
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
+
+    rows = payload.get('rows') or []
+    if not isinstance(rows, list) or not rows:
+        return JsonResponse({'success': False, 'error': 'Select at least one student'}, status=400)
+    if len(rows) > 100:
+        return JsonResponse({'success': False, 'error': 'A batch can contain at most 100 students'}, status=400)
+
+    valid_categories = {key for key, _ in Student.FEE_CATEGORIES}
+    results = []
+    updated = 0
+
+    for incoming in rows:
+        student_id = incoming.get('student_id') or incoming.get('id')
+        fee_category = str(incoming.get('fee_category') or '').strip()
+        try:
+            if fee_category not in valid_categories:
+                raise ValueError('Invalid fee category')
+            student = Student.objects.filter(pk=student_id).select_related('studentprofile__school').first()
+            if not student:
+                raise ValueError('Student not found')
+            profile = getattr(student, 'studentprofile', None)
+            if (
+                not request.user.is_superuser
+                and request.user.school_id
+                and profile
+                and profile.school_id != request.user.school_id
+            ):
+                raise ValueError('Student is outside your school')
+
+            previous = student.fee_category
+            student.fee_category = fee_category
+            student.is_boarder = student.get_fee_student_type() == 'boarder'
+            student.save(update_fields=['fee_category', 'is_boarder'])
+            updated += 1
+            results.append({
+                'student_id': student.id,
+                'success': True,
+                'name': student.get_full_name(),
+                'adm_no': student.adm_no,
+                'previous': previous,
+                'fee_category': student.fee_category,
+                'fee_category_label': student.get_fee_category_display(),
+            })
+        except Exception as exc:
+            results.append({
+                'student_id': student_id,
+                'success': False,
+                'error': str(exc),
+            })
+
+    return JsonResponse({
+        'success': True,
+        'updated': updated,
+        'failed': sum(1 for item in results if not item['success']),
+        'results': results,
+    })
+
+
+def _normalize_phone(raw):
+    digits = ''.join(ch for ch in str(raw or '') if ch.isdigit())
+    if not digits:
+        return ''
+    if digits.startswith('254') and len(digits) >= 12:
+        return '0' + digits[3:]
+    if digits.startswith('0'):
+        return digits
+    if len(digits) == 9:
+        return '0' + digits
+    return digits
+
+
+def _phone_lookup_variants(phone):
+    p = _normalize_phone(phone)
+    if not p:
+        return []
+    variants = {p, phone.strip()}
+    if p.startswith('0') and len(p) == 10:
+        variants.add('254' + p[1:])
+        variants.add('+254' + p[1:])
+    return [v for v in variants if v]
+
+
+def _split_person_name(full):
+    parts = [p for p in str(full or '').strip().split() if p]
+    if not parts:
+        return '', '', ''
+    if len(parts) == 1:
+        return parts[0], '', parts[0]
+    if len(parts) == 2:
+        return parts[0], '', parts[1]
+    return parts[0], ' '.join(parts[1:-1]), parts[-1]
+
+
+def _student_payload(student):
+    try:
+        profile = student.studentprofile
+    except StudentProfile.DoesNotExist:
+        profile = None
+    return {
+        'id': student.id,
+        'adm_no': student.adm_no,
+        'name': student.get_full_name(),
+        'status': profile.status if profile else None,
+        'school': profile.school.name if profile and profile.school else None,
+        'school_id': profile.school_id if profile else None,
+        'class_id': profile.class_id_id if profile else None,
+        'class_name': (
+            f"{profile.class_id.grade.name} {profile.class_id.name}"
+            if profile and profile.class_id else None
+        ),
+        'detail_url': f'/student/{student.id}/',
+        'linked_guardians': [
+            {
+                'id': g.id,
+                'name': g.get_full_name() or g.email,
+                'phone': g.phone_number or '',
+            }
+            for g in student.guardians.all()[:8]
+        ],
+    }
+
+
+def _resolve_school(school_id, user):
+    school = School.objects.filter(id=school_id).first() if school_id else None
+    if not school and getattr(user, 'school_id', None):
+        school = user.school
+    if not school:
+        school = School.objects.filter(name__iexact='Excel Academy').first() or School.objects.first()
+    return school
+
+
+def _apply_student_placement(student, *, school_id=None, class_id=None, status=None, student_name=None):
+    """Update name / school / class / status on an existing learner."""
+    if student_name:
+        first, middle, last = _split_person_name(student_name)
+        student.first_name = first
+        student.middle_name = middle or ''
+        student.last_name = last
+        student.save(update_fields=['first_name', 'middle_name', 'last_name'])
+
+    school = School.objects.filter(id=school_id).first() if school_id else None
+    try:
+        profile = student.studentprofile
+    except StudentProfile.DoesNotExist:
+        if not school:
+            school = School.objects.filter(name__iexact='Excel Academy').first() or School.objects.first()
+        if not school:
+            return student
+        profile = StudentProfile.objects.create(
+            student=student,
+            school=school,
+            status=status if status in dict(StudentProfile.STATUS_CHOICES) else 'Active',
+            fee_balance=0,
+            discipline=100,
+        )
+
+    changed = False
+    if school and profile.school_id != school.id:
+        profile.school = school
+        changed = True
+    if class_id:
+        klass = Class.objects.filter(id=class_id).select_related('school').first()
+        if klass:
+            if profile.class_id_id != klass.id:
+                profile.class_id = klass
+                changed = True
+            if profile.school_id != klass.school_id:
+                profile.school = klass.school
+                changed = True
+    if status and status in dict(StudentProfile.STATUS_CHOICES) and profile.status != status:
+        profile.status = status
+        changed = True
+    if changed:
+        profile.save()
+    return student
+
+
+
+@login_required
+def guardian_sync_view(request):
+    if not _guardian_sync_allowed(request.user):
+        messages.error(request, 'You do not have permission to use Guardian Sync.')
+        return redirect('core:dashboard')
+
+    schools = School.objects.all().order_by('name')
+    if not request.user.is_superuser and request.user.school:
+        schools = schools.filter(id=request.user.school_id)
+
+    return render(request, 'core/guardian_sync.html', {
+        'title': 'Guardian Sync',
+        'subtitle': 'Create guardians and link them to learners, one row at a time',
+        'schools': schools,
+        'status_choices': StudentProfile.STATUS_CHOICES,
+        'classes_url': '/ajax/get-school-classes/',
+    })
+
+
+@login_required
+def guardian_sync_lookup(request):
+    if not _guardian_sync_allowed(request.user):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    adm_no = (request.GET.get('adm_no') or '').strip()
+    phone = (request.GET.get('phone') or '').strip()
+    if not adm_no:
+        return JsonResponse({'error': 'adm_no is required'}, status=400)
+
+    student = Student.objects.filter(adm_no=adm_no).select_related(
+        'studentprofile__school', 'studentprofile__class_id__grade'
+    ).prefetch_related('guardians').first()
+    if not student:
+        student = Student.objects.filter(adm_no__iexact=adm_no).select_related(
+            'studentprofile__school', 'studentprofile__class_id__grade'
+        ).prefetch_related('guardians').first()
+
+    guardian = None
+    for variant in _phone_lookup_variants(phone):
+        guardian = MyUser.objects.filter(phone_number=variant).first()
+        if guardian:
+            break
+
+    payload = {
+        'found': bool(student),
+        'student': _student_payload(student) if student else None,
+        'guardian': None,
+    }
+    if guardian:
+        already = bool(student and guardian.students.filter(id=student.id).exists())
+        payload['guardian'] = {
+            'id': guardian.id,
+            'name': guardian.get_full_name() or guardian.email,
+            'phone': guardian.phone_number or '',
+            'role': guardian.role,
+            'exists': True,
+            'already_linked': already,
+        }
+    return JsonResponse(payload)
+
+
+def _guardian_sync_name_tokens(value):
+    """Return normalized name parts for conservative CSV matching."""
+    import re
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", str(value or '').casefold())
+        if len(token) > 1
+    }
+
+
+def _guardian_sync_find_guardian(phone):
+    for variant in _phone_lookup_variants(phone):
+        guardian = MyUser.objects.filter(phone_number=variant).first()
+        if guardian:
+            return guardian
+    return None
+
+
+def _guardian_sync_create_guardian(*, phone, guardian_name, email_hint=''):
+    """Create a guardian with password set to their phone number."""
+    first, middle, last = _split_person_name(guardian_name)
+    if middle:
+        first = f'{first} {middle}'.strip()
+    email_base = ''.join(ch for ch in str(phone or '') if ch.isdigit()) or 'unknown'
+    email = f'guardian_{email_base}@excelsms.local'
+    if MyUser.objects.filter(email=email).exists() and email_hint:
+        email = f'guardian_{email_base}_{email_hint}@excelsms.local'
+    suffix = 1
+    while MyUser.objects.filter(email=email).exists():
+        email = f'guardian_{email_base}_{suffix}@excelsms.local'
+        suffix += 1
+    return MyUser.objects.create_user(
+        phone_number=phone,
+        email=email,
+        first_name=first,
+        last_name=last,
+        role='Guardian',
+        is_active=True,
+        password=phone,
+    )
+
+
+def _guardian_sync_row_state(*, adm_no, csv_name, guardian_name, phone):
+    """Validate one imported CSV row against current database state."""
+    student = Student.objects.filter(adm_no__iexact=str(adm_no or '').strip()).select_related(
+        'studentprofile__school', 'studentprofile__class_id__grade'
+    ).prefetch_related('guardians').first()
+
+    phone = _normalize_phone(phone)
+    phone_valid = 9 <= len(''.join(ch for ch in phone if ch.isdigit())) <= 15
+    guardian = _guardian_sync_find_guardian(phone) if phone_valid else None
+
+    if not student:
+        status = 'missing_student'
+    elif not phone_valid:
+        status = 'invalid_guardian'
+    else:
+        csv_tokens = _guardian_sync_name_tokens(csv_name)
+        system_tokens = _guardian_sync_name_tokens(student.get_full_name())
+        status = 'ready' if csv_tokens & system_tokens else 'name_mismatch'
+
+    already_linked = bool(
+        student and guardian and guardian.students.filter(id=student.id).exists()
+    )
+    if status == 'ready' and already_linked:
+        status = 'already_linked'
+
+    return {
+        'status': status,
+        'student': _student_payload(student) if student else None,
+        'phone': phone,
+        'phone_valid': phone_valid,
+        'guardian': {
+            'id': guardian.id,
+            'name': guardian.get_full_name() or guardian.email,
+            'phone': guardian.phone_number or '',
+            'exists': True,
+            'already_linked': already_linked,
+        } if guardian else None,
+        'matched_names': sorted(
+            _guardian_sync_name_tokens(csv_name)
+            & (_guardian_sync_name_tokens(student.get_full_name()) if student else set())
+        ),
+    }
+
+
+def _guardian_sync_header_key(value):
+    return ''.join(ch for ch in str(value or '').casefold() if ch.isalnum())
+
+
+def _guardian_sync_header_index(header, aliases):
+    keys = [_guardian_sync_header_key(cell) for cell in header]
+    for alias in aliases:
+        alias_key = _guardian_sync_header_key(alias)
+        if alias_key in keys:
+            return keys.index(alias_key)
+    return None
+
+
+GUARDIAN_SYNC_NAME_HEADERS = [
+    'Student Name', 'Student Names', 'Learner Name', 'Learner Names',
+    'Pupil Name', 'Pupil Names', 'Name', 'Names', 'Full Name', 'Full Names',
+]
+GUARDIAN_SYNC_ADM_HEADERS = [
+    'Adm No', 'Adm Re. No.', 'Adm Reg No', 'Adm Reg. No.', 'Adm Number',
+    'Admission No', 'Admission Number', 'Admission', 'Reg No', 'Reg. No.',
+    'Registration No', 'Adm', 'Admno',
+]
+GUARDIAN_SYNC_GUARDIAN_HEADERS = [
+    'Primary Contact', 'Primary Contact Guardian', 'Guardian', 'Guardian Name',
+    'Guardian Names', 'Parent', 'Parent Name', 'Parent Names', 'Contact Name',
+    'Contact Person', 'Next of Kin',
+]
+GUARDIAN_SYNC_PHONE_HEADERS = [
+    'Contact Mobile', 'Mobile', 'Mobile Phone', 'Mobile No', 'Mobile Number',
+    'Home Phone', 'Phone', 'Phone No', 'Phone Number', 'Telephone', 'Tel',
+    'Tel No', 'Cell', 'Cell Phone', 'Contact Number', 'Contact No', 'Contact',
+]
+GUARDIAN_SYNC_NON_NAME_WORDS = {
+    'grade', 'class', 'stream', 'form', 'male', 'female', 'boy', 'girl',
+    'active', 'inactive', 'yes', 'no', 'na', 'nil', 'none',
+}
+
+
+def _guardian_sync_looks_like_phone(value):
+    text = str(value or '').strip()
+    if not text or any(ch.isalpha() for ch in text):
+        return False
+    return 9 <= len(''.join(ch for ch in text if ch.isdigit())) <= 15
+
+
+def _guardian_sync_looks_like_person(value):
+    text = str(value or '').strip()
+    if len(text) < 3 or _guardian_sync_looks_like_phone(text):
+        return False
+    if sum(1 for ch in text if ch.isalpha()) < 3:
+        return False
+    return not any(word in GUARDIAN_SYNC_NON_NAME_WORDS for word in text.casefold().split())
+
+
+@login_required
+@require_POST
+def guardian_sync_csv_preview(request):
+    if not _guardian_sync_allowed(request.user):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    upload = request.FILES.get('file')
+    if not upload:
+        return JsonResponse({'success': False, 'error': 'Choose an Excel or CSV file'}, status=400)
+    if upload.size > 5 * 1024 * 1024:
+        return JsonResponse({'success': False, 'error': 'File must be 5 MB or smaller'}, status=400)
+
+    import csv
+    import io
+
+    filename = str(upload.name or '').casefold()
+    parsed_rows = []
+
+    if filename.endswith(('.xlsx', '.xlsm')):
+        from openpyxl import load_workbook
+
+        try:
+            workbook = load_workbook(upload, read_only=True, data_only=True)
+            worksheet = workbook.active
+            sheet_rows = list(worksheet.iter_rows(values_only=True))
+        except Exception:
+            return JsonResponse({
+                'success': False,
+                'error': 'The Excel worksheet could not be read. Save it as an .xlsx file and try again.',
+            }, status=400)
+
+        first_index = next(
+            (index for index, values in enumerate(sheet_rows) if any(value not in (None, '') for value in values)),
+            None,
+        )
+        if first_index is None:
+            return JsonResponse({'success': False, 'error': 'The Excel worksheet is empty'}, status=400)
+
+        first_row = [str(value or '').strip() for value in sheet_rows[first_index]]
+        name_idx = _guardian_sync_header_index(first_row, GUARDIAN_SYNC_NAME_HEADERS)
+        adm_idx = _guardian_sync_header_index(first_row, GUARDIAN_SYNC_ADM_HEADERS)
+        guardian_idx = _guardian_sync_header_index(first_row, GUARDIAN_SYNC_GUARDIAN_HEADERS)
+        mobile_idx = _guardian_sync_header_index(first_row, GUARDIAN_SYNC_PHONE_HEADERS)
+
+        # A worksheet may label only some columns, so treat any recognised
+        # label as a header row and fall back to A learner, B admission.
+        has_header = any(index is not None for index in (name_idx, adm_idx, guardian_idx, mobile_idx))
+        if name_idx is None:
+            name_idx = 0
+        if adm_idx is None:
+            adm_idx = 1
+        if not has_header and guardian_idx is None and mobile_idx is None:
+            guardian_idx, mobile_idx = 2, 3
+
+        start_offset = first_index + (1 if has_header else 0)
+        for index, values in enumerate(sheet_rows[start_offset:], start=start_offset + 1):
+            cells = [str(value or '').strip() for value in values]
+
+            def excel_cell(column):
+                return cells[column] if column is not None and column < len(cells) else ''
+
+            parsed_rows.append((
+                index, excel_cell(name_idx), excel_cell(adm_idx),
+                excel_cell(guardian_idx), excel_cell(mobile_idx), cells,
+            ))
+        workbook.close()
+    elif filename.endswith('.xls'):
+        return JsonResponse({
+            'success': False,
+            'error': 'Old .xls files are not supported. In Excel, use Save As and choose .xlsx.',
+        }, status=400)
+    else:
+        raw = upload.read()
+        try:
+            text = raw.decode('utf-8-sig')
+        except UnicodeDecodeError:
+            text = raw.decode('cp1252')
+
+        try:
+            dialect = csv.Sniffer().sniff(text[:4096], delimiters=',;\t')
+        except csv.Error:
+            dialect = csv.excel
+
+        reader = csv.reader(io.StringIO(text), dialect=dialect)
+        try:
+            header = next(reader)
+        except StopIteration:
+            return JsonResponse({'success': False, 'error': 'CSV has no header row'}, status=400)
+
+        name_idx = _guardian_sync_header_index(header, GUARDIAN_SYNC_NAME_HEADERS)
+        adm_idx = _guardian_sync_header_index(header, GUARDIAN_SYNC_ADM_HEADERS)
+        guardian_idx = _guardian_sync_header_index(header, GUARDIAN_SYNC_GUARDIAN_HEADERS)
+        mobile_idx = _guardian_sync_header_index(header, GUARDIAN_SYNC_PHONE_HEADERS)
+        if name_idx is None or adm_idx is None:
+            return JsonResponse({
+                'success': False,
+                'error': 'CSV needs Student Name and Adm No columns in the header row.',
+            }, status=400)
+
+        for cells in reader:
+            surplus = max(0, len(cells) - len(header))
+
+            def csv_cell(index):
+                if index is None:
+                    return ''
+                if index < name_idx:
+                    return cells[index].strip() if index < len(cells) else ''
+                if index == name_idx:
+                    parts = [part.strip() for part in cells[index:index + 1 + surplus]]
+                    return ', '.join(part for part in parts if part)
+                shifted = index + surplus
+                return cells[shifted].strip() if shifted < len(cells) else ''
+
+            parsed_rows.append((
+                reader.line_num, csv_cell(name_idx), csv_cell(adm_idx),
+                csv_cell(guardian_idx), csv_cell(mobile_idx),
+                [cell.strip() for cell in cells],
+            ))
+
+    rows = []
+    for line_no, csv_name, adm_no, guardian_name, mobile, cells in parsed_rows:
+        if len(rows) >= 5000:
+            break
+
+        # Some source sheets put the number in the contact-name column.
+        if not _guardian_sync_looks_like_phone(mobile) and _guardian_sync_looks_like_phone(guardian_name):
+            mobile, guardian_name = guardian_name, ''
+
+        # Sheets vary in column order and labelling, so when the mapped cells
+        # are blank fall back to the first usable value elsewhere in the row.
+        if not _guardian_sync_looks_like_phone(mobile):
+            mobile = next(
+                (
+                    value for value in cells
+                    if value not in (csv_name, adm_no) and _guardian_sync_looks_like_phone(value)
+                ),
+                mobile,
+            )
+        if not guardian_name:
+            guardian_name = next(
+                (
+                    value for value in cells
+                    if value not in (csv_name, adm_no, mobile)
+                    and _guardian_sync_looks_like_person(value)
+                ),
+                '',
+            )
+
+        if not any([csv_name, adm_no, guardian_name, mobile]):
+            continue
+        state = _guardian_sync_row_state(
+            adm_no=adm_no,
+            csv_name=csv_name,
+            guardian_name=guardian_name,
+            phone=mobile,
+        )
+        rows.append({
+            'row_id': len(rows) + 1,
+            'line_no': line_no,
+            'csv_name': csv_name,
+            'adm_no': adm_no,
+            'guardian_name': guardian_name or (
+                f"Guardian {state['phone'][-4:]}" if state['phone'] else ''
+            ),
+            'phone': state['phone'],
+            **state,
+        })
+
+    if not rows:
+        return JsonResponse({
+            'success': False,
+            'error': 'No data rows found. Expected Student Name, Adm No, Primary Contact, and Contact Mobile headers.',
+        }, status=400)
+
+    summary = {}
+    for row in rows:
+        summary[row['status']] = summary.get(row['status'], 0) + 1
+    return JsonResponse({
+        'success': True,
+        'rows': rows,
+        'summary': summary,
+        'truncated': len(rows) == 5000,
+    })
+
+
+@login_required
+@require_POST
+def guardian_sync_csv_apply(request):
+    if not _guardian_sync_allowed(request.user):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    try:
+        payload = json.loads(request.body.decode() or '{}')
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
+
+    rows = payload.get('rows') or []
+    if not isinstance(rows, list) or not rows:
+        return JsonResponse({'success': False, 'error': 'Select at least one row'}, status=400)
+    if len(rows) > 50:
+        return JsonResponse({'success': False, 'error': 'A batch can contain at most 50 rows'}, status=400)
+
+    from django.db import transaction
+    from users.models import GuardianRelationship
+
+    results = []
+    for incoming in rows:
+        row_id = incoming.get('row_id')
+        adm_no = str(incoming.get('adm_no') or '').strip()
+        csv_name = str(incoming.get('csv_name') or '').strip()
+        guardian_name = str(incoming.get('guardian_name') or '').strip()
+        phone = _normalize_phone(incoming.get('phone'))
+        confirm_name_update = incoming.get('confirm_name_update') is True
+
+        try:
+            with transaction.atomic():
+                student = Student.objects.filter(adm_no__iexact=adm_no).first()
+                if not student:
+                    raise ValueError('Learner is not in the system')
+
+                name_matches = bool(
+                    _guardian_sync_name_tokens(csv_name)
+                    & _guardian_sync_name_tokens(student.get_full_name())
+                )
+                if not name_matches and not confirm_name_update:
+                    raise ValueError('Name mismatch requires confirmation')
+                if not name_matches and confirm_name_update:
+                    _apply_student_placement(student, student_name=csv_name)
+
+                digits = ''.join(ch for ch in phone if ch.isdigit())
+                if not (9 <= len(digits) <= 15):
+                    raise ValueError('A valid guardian mobile is required')
+                if not guardian_name:
+                    guardian_name = f'Guardian {phone[-4:]}'
+
+                guardian = _guardian_sync_find_guardian(phone)
+                created_guardian = False
+                if not guardian:
+                    guardian = _guardian_sync_create_guardian(
+                        phone=phone,
+                        guardian_name=guardian_name,
+                        email_hint=adm_no,
+                    )
+                    created_guardian = True
+
+                already_linked = guardian.students.filter(id=student.id).exists()
+                guardian.students.add(student)
+                GuardianRelationship.objects.update_or_create(
+                    user=guardian,
+                    student=student,
+                    defaults={'relationship': 'Guardian'},
+                )
+                results.append({
+                    'row_id': row_id,
+                    'success': True,
+                    'status': 'already_linked' if already_linked else 'linked',
+                    'created_guardian': created_guardian,
+                    'student_name': student.get_full_name(),
+                    'guardian_name': guardian.get_full_name() or guardian.email,
+                })
+        except Exception as exc:
+            results.append({
+                'row_id': row_id,
+                'success': False,
+                'status': 'error',
+                'error': str(exc),
+            })
+
+    return JsonResponse({
+        'success': True,
+        'results': results,
+        'linked': sum(1 for item in results if item['success']),
+        'failed': sum(1 for item in results if not item['success']),
+    })
+
+
+@login_required
+@require_POST
+def guardian_sync_create_student(request):
+    if not _guardian_sync_allowed(request.user):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    try:
+        data = json.loads(request.body.decode() or '{}')
+    except Exception:
+        data = request.POST
+
+    adm_no = str(data.get('adm_no') or '').strip()
+    student_name = str(data.get('student_name') or '').strip()
+    status = str(data.get('status') or 'Active').strip()
+    school_id = data.get('school_id') or None
+    class_id = data.get('class_id') or None
+
+    if not adm_no or not student_name:
+        return JsonResponse({'success': False, 'error': 'Admission number and student name are required'}, status=400)
+
+    if status not in dict(StudentProfile.STATUS_CHOICES):
+        return JsonResponse({'success': False, 'error': 'Invalid status'}, status=400)
+
+    school = _resolve_school(school_id, request.user)
+    if not school:
+        return JsonResponse({'success': False, 'error': 'No school available to assign'}, status=400)
+
+    klass = None
+    if class_id:
+        klass = Class.objects.filter(id=class_id, school=school).first()
+        if not klass:
+            klass = Class.objects.filter(id=class_id).first()
+            if klass:
+                school = klass.school
+
+    existing = Student.objects.filter(adm_no=adm_no).first()
+    if existing:
+        _apply_student_placement(
+            existing,
+            school_id=school.id,
+            class_id=klass.id if klass else class_id,
+            status=status,
+            student_name=student_name,
+        )
+        existing = Student.objects.select_related(
+            'studentprofile__school', 'studentprofile__class_id__grade'
+        ).prefetch_related('guardians').get(pk=existing.pk)
+        return JsonResponse({'success': True, 'created': False, 'student': _student_payload(existing)})
+
+    first, middle, last = _split_person_name(student_name)
+    today = timezone.localdate()
+    student = Student.objects.create(
+        adm_no=adm_no,
+        first_name=first,
+        middle_name=middle or '',
+        last_name=last,
+        date_of_birth=date(today.year - 12, 1, 1),
+        joined_date=today,
+        gender='male',
+        fee_category='day',
+        is_boarder=False,
+    )
+    StudentProfile.objects.create(
+        student=student,
+        school=school,
+        class_id=klass,
+        status=status,
+        fee_balance=0,
+        discipline=100,
+    )
+
+    from core.activity_log import log_activity
+    log_activity(
+        request.user, 'Created', 'Student',
+        f'Guardian Sync created student {student.get_full_name()} (ADM: {adm_no}) status={status}',
+        'Student', student.pk,
+    )
+    student = Student.objects.select_related(
+        'studentprofile__school', 'studentprofile__class_id__grade'
+    ).prefetch_related('guardians').get(pk=student.pk)
+    return JsonResponse({'success': True, 'created': True, 'student': _student_payload(student)})
+
+
+@login_required
+@require_POST
+def guardian_sync_apply(request):
+    if not _guardian_sync_allowed(request.user):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    try:
+        data = json.loads(request.body.decode() or '{}')
+    except Exception:
+        data = request.POST
+
+    adm_no = str(data.get('adm_no') or '').strip()
+    guardian_name = str(data.get('guardian_name') or '').strip()
+    phone_raw = str(data.get('phone') or '').strip()
+
+    # Fallback: phone sometimes sits in the Primary Contact column
+    blank_markers = {'', '-', '—', '–', '_', '/', 'n/a', 'null'}
+    if phone_raw.strip().lower() in blank_markers or phone_raw.strip() in blank_markers:
+        phone_raw = ''
+    if not phone_raw and guardian_name:
+        digits = ''.join(ch for ch in guardian_name if ch.isdigit())
+        if 9 <= len(digits) <= 15:
+            phone_raw = guardian_name
+            guardian_name = ''
+    phone = _normalize_phone(phone_raw) or phone_raw
+    if not guardian_name and phone:
+        guardian_name = f"Guardian {phone[-4:]}"
+
+    if not adm_no:
+        return JsonResponse({'success': False, 'error': 'adm_no is required'}, status=400)
+    if not phone:
+        return JsonResponse({'success': False, 'error': 'Guardian phone is required'}, status=400)
+    if not guardian_name:
+        return JsonResponse({'success': False, 'error': 'Guardian name is required'}, status=400)
+
+    student = Student.objects.filter(adm_no=adm_no).first() or Student.objects.filter(adm_no__iexact=adm_no).first()
+    if not student:
+        return JsonResponse({
+            'success': False,
+            'error': 'Student not found. Create the learner first.',
+            'need_create_student': True,
+        }, status=404)
+
+    # Persist editable placement / name from the wizard
+    student_name = str(data.get('student_name') or '').strip()
+    status = str(data.get('status') or '').strip() or None
+    school_id = data.get('school_id') or None
+    class_id = data.get('class_id') or None
+    _apply_student_placement(
+        student,
+        school_id=school_id,
+        class_id=class_id,
+        status=status,
+        student_name=student_name or None,
+    )
+    student.refresh_from_db()
+
+    from users.models import GuardianRelationship
+
+    guardian = None
+    for variant in _phone_lookup_variants(phone):
+        guardian = MyUser.objects.filter(phone_number=variant).first()
+        if guardian:
+            break
+
+    created_guardian = False
+    if not guardian:
+        guardian = _guardian_sync_create_guardian(
+            phone=phone,
+            guardian_name=guardian_name,
+            email_hint=adm_no,
+        )
+        created_guardian = True
+    else:
+        # Fill blank names if we have better data
+        if guardian_name and (not guardian.first_name or not guardian.last_name):
+            g_first, g_middle, g_last = _split_person_name(guardian_name)
+            if g_middle:
+                g_first = f'{g_first} {g_middle}'.strip()
+            if not guardian.first_name:
+                guardian.first_name = g_first
+            if not guardian.last_name:
+                guardian.last_name = g_last
+            if guardian.role != 'Guardian' and guardian.role not in ['Admin', 'Teacher', 'Accountant', 'Receptionist']:
+                guardian.role = 'Guardian'
+            guardian.save(update_fields=['first_name', 'last_name', 'role'])
+
+    already_linked = guardian.students.filter(id=student.id).exists()
+    if not already_linked:
+        guardian.students.add(student)
+
+    GuardianRelationship.objects.update_or_create(
+        user=guardian,
+        student=student,
+        defaults={'relationship': 'Guardian'},
+    )
+
+    from core.activity_log import log_activity
+    action = 'Created' if created_guardian else 'Linked'
+    log_activity(
+        request.user, action, 'Guardian',
+        f'Guardian Sync linked {guardian.get_full_name()} ({phone}) to {student.get_full_name()} (ADM: {adm_no})',
+        'Student', student.pk,
+    )
+
+    student = Student.objects.select_related(
+        'studentprofile__school', 'studentprofile__class_id__grade'
+    ).prefetch_related('guardians').get(pk=student.pk)
+
+    return JsonResponse({
+        'success': True,
+        'created_guardian': created_guardian,
+        'already_linked': already_linked,
+        'student': _student_payload(student),
+        'guardian': {
+            'id': guardian.id,
+            'name': guardian.get_full_name() or guardian.email,
+            'phone': guardian.phone_number or '',
+            'role': guardian.role,
+            'exists': True,
+            'already_linked': True,
+        },
+    })

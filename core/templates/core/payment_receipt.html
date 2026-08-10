@@ -176,5 +176,13 @@
             </div>
         </div>
     </div>
+
+    <script>
+        window.onload = function() {
+            if (window.location.search.includes('autoprint=true')) {
+                window.print();
+            }
+        }
+    </script>
 </body>
 </html>

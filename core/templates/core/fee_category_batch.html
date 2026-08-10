@@ -1,0 +1,356 @@
+{% extends 'base.html' %}
+
+{% block title %}Fee Category Assignment - Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+  <div>
+    <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Fee Category Assignment</h1>
+    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mt-0.5">
+      Search learners, build a batch, choose categories, submit when ready
+    </p>
+  </div>
+  <a href="{% url 'core:operations' %}" class="text-xs font-bold text-rose-600 hover:text-rose-700">
+    <i class="fas fa-arrow-left mr-1"></i> Operations Hub
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="fee-category-app"
+     class="space-y-5"
+     data-search-url="{{ search_url }}"
+     data-apply-url="{{ apply_url }}">
+
+  <section class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+    <div class="flex flex-col lg:flex-row lg:items-end gap-4">
+      <div class="flex-1">
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Search student</label>
+        <div class="relative">
+          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input id="student-search" type="text" autocomplete="off"
+                 placeholder="Type name or admission number…"
+                 class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm font-semibold outline-none focus:border-rose-500">
+          <div id="search-results"
+               class="hidden absolute z-20 mt-2 w-full max-h-72 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg"></div>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-2">Click a result to add it to the batch. You can keep searching and add more before submitting.</p>
+      </div>
+      <div class="w-full lg:w-64">
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Apply category to all in batch</label>
+        <div class="flex gap-2">
+          <select id="bulk-category"
+                  class="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2.5 text-sm font-semibold">
+            {% for value, label in fee_categories %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+          <button id="apply-bulk" type="button"
+                  class="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
+            Set all
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="page-message" class="hidden mt-4 rounded-lg px-4 py-3 text-sm font-medium"></div>
+  </section>
+
+  <section class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+    <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h2 class="text-sm font-extrabold text-slate-900 dark:text-white">Batch queue</h2>
+        <p id="batch-label" class="text-xs text-slate-500 mt-0.5">0 students ready to update</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="clear-batch" type="button"
+                class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300">
+          Clear batch
+        </button>
+        <button id="submit-batch" type="button" disabled
+                class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white text-xs font-bold">
+          <span id="submit-label">
+            <i class="fas fa-save mr-1"></i> Submit batch (<span id="batch-count">0</span>)
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="bg-slate-50 dark:bg-slate-950/60 text-[10px] uppercase tracking-wider text-slate-500">
+          <tr>
+            <th class="px-4 py-3">Learner</th>
+            <th class="px-4 py-3">Class</th>
+            <th class="px-4 py-3">Current</th>
+            <th class="px-4 py-3">New category</th>
+            <th class="px-4 py-3 text-right">Remove</th>
+          </tr>
+        </thead>
+        <tbody id="batch-body" class="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+          <tr id="batch-empty">
+            <td colspan="5" class="px-4 py-10 text-center text-slate-400">
+              Search and select students to build your batch.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const app = document.getElementById('fee-category-app');
+  if (!app) return;
+
+  const csrf = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '{{ csrf_token }}';
+  const categories = [
+    {% for value, label in fee_categories %}
+    {value: '{{ value }}', label: '{{ label }}'}{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ];
+  const batch = new Map();
+  let searchTimer = null;
+
+  const $ = id => document.getElementById(id);
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+
+  function message(text, kind = 'error') {
+    const el = $('page-message');
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.className = 'mt-4 rounded-lg px-4 py-3 text-sm font-medium';
+    el.classList.add(kind === 'success' ? 'bg-emerald-50' : kind === 'warn' ? 'bg-amber-50' : 'bg-rose-50');
+    el.classList.add(kind === 'success' ? 'text-emerald-800' : kind === 'warn' ? 'text-amber-800' : 'text-rose-800');
+    el.textContent = text;
+  }
+
+  function setText(id, value) {
+    const el = $(id);
+    if (el) el.textContent = value;
+  }
+
+  function defaultSubmitLabel(count = 0) {
+    return `<i class="fas fa-save mr-1"></i> Submit batch (<span id="batch-count">${count}</span>)`;
+  }
+
+  function setSubmitLabel(html) {
+    const label = $('submit-label');
+    if (label) label.innerHTML = html;
+  }
+
+  function categoryOptions(selected) {
+    return categories.map(item =>
+      `<option value="${item.value}" ${item.value === selected ? 'selected' : ''}>${esc(item.label)}</option>`
+    ).join('');
+  }
+
+  function renderBatch() {
+    const body = $('batch-body');
+    const rows = Array.from(batch.values());
+    if ($('batch-count')) {
+      setText('batch-count', rows.length);
+    } else {
+      setSubmitLabel(defaultSubmitLabel(rows.length));
+    }
+    setText('batch-label', rows.length
+      ? `${rows.length} student${rows.length === 1 ? '' : 's'} ready to update`
+      : '0 students ready to update');
+    if ($('submit-batch')) $('submit-batch').disabled = rows.length === 0;
+
+    if (!rows.length) {
+      body.innerHTML = `<tr id="batch-empty">
+        <td colspan="5" class="px-4 py-10 text-center text-slate-400">
+          Search and select students to build your batch.
+        </td>
+      </tr>`;
+      return;
+    }
+
+    body.innerHTML = rows.map(row => `
+      <tr data-id="${row.id}">
+        <td class="px-4 py-3 align-top">
+          <p class="font-bold text-slate-800 dark:text-slate-100">${esc(row.name)}</p>
+          <p class="text-slate-500">Adm ${esc(row.adm_no)}</p>
+        </td>
+        <td class="px-4 py-3 align-top text-slate-600 dark:text-slate-300">
+          <p>${esc(row.class || '—')}</p>
+          <p class="text-slate-400">${esc(row.school || '')}</p>
+        </td>
+        <td class="px-4 py-3 align-top">
+          <span class="inline-flex rounded-full px-2 py-1 text-[10px] font-extrabold bg-slate-100 text-slate-600">
+            ${esc(row.fee_category_label || row.fee_category || '—')}
+          </span>
+        </td>
+        <td class="px-4 py-3 align-top">
+          <select data-category-for="${row.id}"
+                  class="w-full max-w-[180px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-xs font-bold">
+            ${categoryOptions(row.next_category || row.fee_category || 'day')}
+          </select>
+        </td>
+        <td class="px-4 py-3 align-top text-right">
+          <button type="button" data-remove="${row.id}"
+                  class="text-rose-600 font-bold hover:underline">Remove</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function addStudent(student) {
+    if (!student?.id) return;
+    if (batch.has(Number(student.id))) {
+      message(`${student.name} is already in the batch.`, 'warn');
+      return;
+    }
+    batch.set(Number(student.id), {
+      ...student,
+      next_category: student.fee_category || 'day',
+    });
+    renderBatch();
+    message(`Added ${student.name} to the batch.`, 'success');
+  }
+
+  async function runSearch(query) {
+    const box = $('search-results');
+    if (query.trim().length < 2) {
+      box.classList.add('hidden');
+      box.innerHTML = '';
+      return;
+    }
+    try {
+      const response = await fetch(`${app.dataset.searchUrl}?q=${encodeURIComponent(query.trim())}`);
+      const data = await response.json();
+      const results = data.results || [];
+      if (!results.length) {
+        box.innerHTML = `<div class="px-4 py-3 text-xs text-slate-400">No students found.</div>`;
+        box.classList.remove('hidden');
+        return;
+      }
+      box.innerHTML = results.map(item => `
+        <button type="button"
+                class="w-full text-left px-4 py-3 hover:bg-rose-50 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800 last:border-0"
+                data-add="${encodeURIComponent(JSON.stringify(item))}">
+          <p class="text-sm font-bold text-slate-800 dark:text-slate-100">${esc(item.name)}</p>
+          <p class="text-[11px] text-slate-500">
+            Adm ${esc(item.adm_no)} · ${esc(item.class || 'No class')}
+            · ${esc(item.fee_category_label || item.fee_category || '')}
+          </p>
+        </button>
+      `).join('');
+      box.classList.remove('hidden');
+    } catch (error) {
+      message(error.message || 'Search failed');
+    }
+  }
+
+  $('student-search').addEventListener('input', event => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => runSearch(event.target.value), 250);
+  });
+
+  $('student-search').addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      $('search-results').classList.add('hidden');
+    }
+  });
+
+  document.addEventListener('click', event => {
+    if (!event.target.closest('#fee-category-app .relative')) {
+      $('search-results').classList.add('hidden');
+    }
+  });
+
+  $('search-results').addEventListener('click', event => {
+    const button = event.target.closest('button[data-add]');
+    if (!button) return;
+    try {
+      const student = JSON.parse(decodeURIComponent(button.getAttribute('data-add')));
+      addStudent(student);
+      $('student-search').value = '';
+      $('search-results').classList.add('hidden');
+      $('student-search').focus();
+    } catch (error) {
+      message('Could not add that student');
+    }
+  });
+
+  $('batch-body').addEventListener('change', event => {
+    const select = event.target.closest('select[data-category-for]');
+    if (!select) return;
+    const row = batch.get(Number(select.dataset.categoryFor));
+    if (row) row.next_category = select.value;
+  });
+
+  $('batch-body').addEventListener('click', event => {
+    const button = event.target.closest('button[data-remove]');
+    if (!button) return;
+    batch.delete(Number(button.dataset.remove));
+    renderBatch();
+  });
+
+  $('apply-bulk').addEventListener('click', () => {
+    const value = $('bulk-category').value;
+    if (!batch.size) {
+      message('Add students to the batch first.', 'warn');
+      return;
+    }
+    batch.forEach(row => { row.next_category = value; });
+    renderBatch();
+    message(`Set ${batch.size} row${batch.size === 1 ? '' : 's'} to ${categories.find(c => c.value === value)?.label || value}.`, 'success');
+  });
+
+  $('clear-batch').addEventListener('click', () => {
+    if (!batch.size) return;
+    if (!confirm('Clear the entire batch queue?')) return;
+    batch.clear();
+    renderBatch();
+  });
+
+  $('submit-batch').addEventListener('click', async () => {
+    const rows = Array.from(batch.values());
+    if (!rows.length) return;
+    if (!confirm(`Submit fee category updates for ${rows.length} student${rows.length === 1 ? '' : 's'}?`)) return;
+
+    $('submit-batch').disabled = true;
+    setSubmitLabel('<i class="fas fa-spinner fa-spin mr-1"></i> Saving…');
+
+    try {
+      const response = await fetch(app.dataset.applyUrl, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+        body: JSON.stringify({
+          rows: rows.map(row => ({
+            student_id: row.id,
+            fee_category: row.next_category || row.fee_category || 'day',
+          })),
+        }),
+      });
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (error) {
+        throw new Error(response.ok
+          ? 'Unexpected server response while saving.'
+          : `Server error while saving (HTTP ${response.status}).`);
+      }
+      if (!data.success) throw new Error(data.error || 'Batch failed');
+
+      (data.results || []).forEach(result => {
+        if (result.success) batch.delete(Number(result.student_id));
+      });
+      message(`Batch saved: ${data.updated} updated, ${data.failed} failed.`, data.failed ? 'warn' : 'success');
+    } catch (error) {
+      message(error.message);
+    } finally {
+      setSubmitLabel(defaultSubmitLabel(batch.size));
+      renderBatch();
+    }
+  });
+
+  renderBatch();
+})();
+</script>
+{% endblock %}

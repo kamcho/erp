@@ -41,6 +41,36 @@
         </div>
     </a>
 
+    <!-- Guardian Sync Card -->
+    <a href="{% url 'core:guardian-sync' %}" class="group bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400 group-hover:bg-violet-600 group-hover:text-white transition-all shadow-sm border border-violet-100 dark:border-violet-800/50">
+                <i class="fas fa-user-friends text-sm"></i>
+            </div>
+            <h3 class="text-[17px] font-extrabold text-slate-800 dark:text-white tracking-tight">Guardian Sync</h3>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">Paste contact lists, match learners by admission number, create guardians, and link them one by one.</p>
+        <div class="text-[12px] text-violet-500 font-bold flex items-center gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <span>Start Sync</span>
+            <i class="fas fa-arrow-right text-[10px] transform group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+
+    <!-- Fee Category Batch Card -->
+    <a href="{% url 'core:fee-category-batch' %}" class="group bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400 group-hover:bg-rose-600 group-hover:text-white transition-all shadow-sm border border-rose-100 dark:border-rose-800/50">
+                <i class="fas fa-tags text-sm"></i>
+            </div>
+            <h3 class="text-[17px] font-extrabold text-slate-800 dark:text-white tracking-tight">Fee Categories</h3>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">Search learners, add them to a batch, assign Day / Border / Staff / Director categories, and submit when ready.</p>
+        <div class="text-[12px] text-rose-500 font-bold flex items-center gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <span>Assign Categories</span>
+            <i class="fas fa-arrow-right text-[10px] transform group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+
     <!-- Broadcasts Card -->
     <a href="{% url 'communication:dashboard' %}" class="group bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
         <div class="flex items-center gap-4 mb-4">

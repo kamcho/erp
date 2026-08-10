@@ -1,0 +1,518 @@
+{% extends 'base.html' %}
+
+{% block title %}Guardian Sync - Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+  <div>
+    <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Guardian Sync</h1>
+    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mt-0.5">
+      Validate Excel contacts and link guardians in batches of 50
+    </p>
+  </div>
+  <a href="{% url 'core:operations' %}" class="text-xs font-bold text-violet-600 hover:text-violet-700">
+    <i class="fas fa-arrow-left mr-1"></i> Operations Hub
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="guardian-sync-app"
+     class="space-y-5"
+     data-preview-url="{% url 'core:guardian-sync-csv-preview' %}"
+     data-apply-url="{% url 'core:guardian-sync-csv-apply' %}"
+     data-create-url="{% url 'core:guardian-sync-create-student' %}"
+     data-classes-url="{% url 'core:get-school-classes' %}">
+
+  <section class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div>
+        <h2 class="text-base font-extrabold text-slate-900 dark:text-white">Upload guardian worksheet</h2>
+        <p class="text-xs text-slate-500 mt-1">
+          Excel columns: A learner name, B admission number, C guardian name, D phone.
+          A header row is optional. CSV files remain supported.
+        </p>
+      </div>
+      <form id="csv-form" class="flex flex-col sm:flex-row gap-2 sm:items-center">
+        <input id="csv-file" name="file" type="file"
+               accept=".xlsx,.xlsm,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required
+               class="block text-xs text-slate-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 file:font-bold">
+        <button id="upload-btn" type="submit"
+                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-bold">
+          <i class="fas fa-file-excel"></i> Validate worksheet
+        </button>
+      </form>
+    </div>
+    <div id="upload-message" class="hidden mt-4 rounded-lg px-4 py-3 text-sm font-medium"></div>
+  </section>
+
+  <section id="review-panel" class="hidden space-y-4">
+    <div id="summary-cards" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3"></div>
+
+    <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-extrabold text-slate-900 dark:text-white">Worksheet review</h2>
+          <p id="page-label" class="text-xs text-slate-500 mt-0.5"></p>
+          <p class="text-[11px] text-slate-400 mt-1">Review the checked rows, then submit this page to save the guardian links.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="select-ready" type="button" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300">
+            Select ready
+          </button>
+          <button id="apply-selected" type="button" disabled
+                  class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-bold">
+            <span id="apply-label">
+              <i class="fas fa-save mr-1"></i> Submit &amp; save batch (<span id="selected-count">0</span>)
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead class="bg-slate-50 dark:bg-slate-950/60 text-[10px] uppercase tracking-wider text-slate-500">
+            <tr>
+              <th class="px-3 py-3 w-10"><input id="check-page" type="checkbox" class="rounded border-slate-300"></th>
+              <th class="px-3 py-3">Worksheet learner</th>
+              <th class="px-3 py-3">System learner</th>
+              <th class="px-3 py-3">Guardian</th>
+              <th class="px-3 py-3">Validation</th>
+              <th class="px-3 py-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="review-body" class="divide-y divide-slate-100 dark:divide-slate-800 text-xs"></tbody>
+        </table>
+      </div>
+
+      <div class="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <button id="prev-page" type="button" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold disabled:opacity-40">Previous</button>
+        <span id="pagination-label" class="text-xs font-bold text-slate-500"></span>
+        <button id="next-page" type="button" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold disabled:opacity-40">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="learner-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 p-4 overflow-y-auto">
+    <div class="max-w-4xl mx-auto my-6 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900 dark:text-white">Review learner and guardian</h2>
+          <p class="text-xs text-slate-500">Edit missing or incorrect information before continuing.</p>
+        </div>
+        <button id="close-modal" type="button" class="w-9 h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="rounded-xl border border-sky-200 dark:border-sky-900 p-4 space-y-3">
+          <h3 class="text-sm font-extrabold text-sky-700 dark:text-sky-300"><i class="fas fa-user-graduate mr-2"></i>Learner</h3>
+          <label class="block text-xs font-bold text-slate-500">Student name
+            <input id="m-student-name" type="text" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm">
+          </label>
+          <label class="block text-xs font-bold text-slate-500">Admission number
+            <input id="m-adm" type="text" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm font-bold">
+          </label>
+          <label class="block text-xs font-bold text-slate-500">School
+            <select id="m-school" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm">
+              {% for school in schools %}<option value="{{ school.id }}">{{ school.name }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="block text-xs font-bold text-slate-500">Class / stream
+            <select id="m-class" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm">
+              <option value="">— Select class —</option>
+            </select>
+          </label>
+          <label class="block text-xs font-bold text-slate-500">Status
+            <select id="m-status" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm">
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="Graduated">Graduated</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="rounded-xl border border-violet-200 dark:border-violet-900 p-4 space-y-3">
+          <h3 class="text-sm font-extrabold text-violet-700 dark:text-violet-300"><i class="fas fa-user-friends mr-2"></i>Guardian</h3>
+          <label class="block text-xs font-bold text-slate-500">Guardian name
+            <input id="m-guardian-name" type="text" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm">
+          </label>
+          <label class="block text-xs font-bold text-slate-500">Mobile
+            <input id="m-phone" type="text" inputmode="tel" placeholder="0712345678" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm font-bold">
+          </label>
+          <div id="modal-system-info" class="rounded-lg bg-slate-50 dark:bg-slate-950 p-3 text-xs text-slate-600 dark:text-slate-300"></div>
+        </div>
+      </div>
+
+      <div id="modal-message" class="hidden mx-5 mb-3 rounded-lg px-4 py-3 text-sm font-medium"></div>
+      <div class="p-5 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2">
+        <button id="cancel-modal" type="button" class="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Cancel</button>
+        <button id="save-modal" type="button" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold">
+          Save learner details
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const app = document.getElementById('guardian-sync-app');
+  const csrf = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '{{ csrf_token }}';
+  const pageSize = 50;
+  let rows = [];
+  let currentPage = 1;
+  let modalRowId = null;
+
+  const $ = id => document.getElementById(id);
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+  const currentRows = () => rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const rowById = id => rows.find(row => Number(row.row_id) === Number(id));
+  const canSelect = row => ['ready', 'ready_name_update'].includes(row.status);
+
+  function message(el, text, kind = 'error') {
+    if (!el) return;
+    el.className = 'mt-4 rounded-lg px-4 py-3 text-sm font-medium';
+    el.classList.remove('hidden');
+    el.classList.add(kind === 'success' ? 'bg-emerald-50' : kind === 'warn' ? 'bg-amber-50' : 'bg-rose-50');
+    el.classList.add(kind === 'success' ? 'text-emerald-800' : kind === 'warn' ? 'text-amber-800' : 'text-rose-800');
+    el.textContent = text;
+  }
+
+  function setText(id, value) {
+    const el = $(id);
+    if (el) el.textContent = value;
+  }
+
+  function setApplyLabel(html) {
+    const label = $('apply-label');
+    if (label) label.innerHTML = html;
+  }
+
+  function defaultApplyLabel(count = 0) {
+    return `<i class="fas fa-save mr-1"></i> Submit &amp; save batch (<span id="selected-count">${count}</span>)`;
+  }
+
+  function statusMeta(status) {
+    return {
+      ready: ['Ready', 'bg-emerald-50 text-emerald-700'],
+      ready_name_update: ['Confirmed update', 'bg-sky-50 text-sky-700'],
+      name_mismatch: ['Name mismatch', 'bg-amber-50 text-amber-700'],
+      missing_student: ['Learner missing', 'bg-rose-50 text-rose-700'],
+      invalid_guardian: ['Phone required', 'bg-orange-50 text-orange-700'],
+      already_linked: ['Already linked', 'bg-slate-100 text-slate-600'],
+      linked: ['Linked', 'bg-emerald-100 text-emerald-800'],
+      error: ['Error', 'bg-rose-100 text-rose-800'],
+    }[status] || [status, 'bg-slate-100 text-slate-600'];
+  }
+
+  function renderSummary() {
+    const counts = {};
+    rows.forEach(row => counts[row.status] = (counts[row.status] || 0) + 1);
+    const definitions = [
+      ['ready', 'Ready'], ['name_mismatch', 'Name mismatch'],
+      ['missing_student', 'Missing'], ['invalid_guardian', 'Phone missing'],
+      ['linked', 'Linked'], ['already_linked', 'Already linked'],
+    ];
+    $('summary-cards').innerHTML = definitions.map(([key, label]) => `
+      <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+        <p class="text-2xl font-black text-slate-900 dark:text-white">${counts[key] || 0}</p>
+        <p class="text-[10px] uppercase tracking-wider font-bold text-slate-500">${label}</p>
+      </div>`).join('');
+  }
+
+  function rowAction(row) {
+    if (row.status === 'name_mismatch') {
+      return `<button data-action="confirm-name" data-id="${row.row_id}" class="text-amber-700 font-bold hover:underline">Confirm CSV name</button>`;
+    }
+    if (row.status === 'missing_student') {
+      return `<button data-action="open-modal" data-id="${row.row_id}" class="text-violet-700 font-bold hover:underline">Review / create</button>`;
+    }
+    if (row.status === 'invalid_guardian') {
+      return `<button data-action="open-modal" data-id="${row.row_id}" class="text-violet-700 font-bold hover:underline">Add phone</button>`;
+    }
+    if (row.status === 'error') {
+      return `<button data-action="open-modal" data-id="${row.row_id}" class="text-violet-700 font-bold hover:underline">Fix row</button>`;
+    }
+    return '';
+  }
+
+  function renderTable() {
+    const pageRows = currentRows();
+    const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+    if (currentPage > totalPages) currentPage = totalPages;
+    $('review-body').innerHTML = pageRows.map(row => {
+      const [label, classes] = statusMeta(row.status);
+      const systemName = row.student?.name || 'Not found';
+      const matchText = row.matched_names?.length ? `Matched: ${row.matched_names.join(', ')}` : '';
+      return `<tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
+        <td class="px-3 py-3 align-top">
+          <input data-row-check="${row.row_id}" type="checkbox" ${row.selected ? 'checked' : ''}
+                 ${canSelect(row) ? '' : 'disabled'} class="rounded border-slate-300 disabled:opacity-30">
+        </td>
+        <td class="px-3 py-3 align-top">
+          <p class="font-bold text-slate-800 dark:text-slate-100">${esc(row.csv_name || '—')}</p>
+          <p class="text-slate-500">Adm ${esc(row.adm_no || '—')} · line ${row.line_no}</p>
+        </td>
+        <td class="px-3 py-3 align-top">
+          <p class="${row.student ? 'font-semibold text-slate-700 dark:text-slate-200' : 'text-rose-600 font-bold'}">${esc(systemName)}</p>
+          <p class="text-slate-400">${esc(matchText)}</p>
+        </td>
+        <td class="px-3 py-3 align-top">
+          <p class="font-semibold text-slate-700 dark:text-slate-200">${esc(row.guardian_name || 'Name missing')}</p>
+          <p class="${row.phone_valid ? 'text-slate-500' : 'text-orange-600 font-bold'}">${esc(row.phone || 'Phone missing')}</p>
+          ${row.guardian ? `<p class="text-[10px] text-violet-600">Existing account</p>` : ''}
+        </td>
+        <td class="px-3 py-3 align-top">
+          <span class="inline-flex rounded-full px-2 py-1 text-[10px] font-extrabold ${classes}">${label}</span>
+          ${row.error ? `<p class="mt-1 text-rose-600">${esc(row.error)}</p>` : ''}
+        </td>
+        <td class="px-3 py-3 align-top text-right">${rowAction(row)}</td>
+      </tr>`;
+    }).join('');
+
+    const start = rows.length ? (currentPage - 1) * pageSize + 1 : 0;
+    const end = Math.min(currentPage * pageSize, rows.length);
+    setText('page-label', `Showing ${start}–${end} of ${rows.length}; each page is one maximum batch.`);
+    setText('pagination-label', `Page ${currentPage} of ${totalPages}`);
+    if ($('prev-page')) $('prev-page').disabled = currentPage === 1;
+    if ($('next-page')) $('next-page').disabled = currentPage === totalPages;
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    const count = currentRows().filter(row => row.selected && canSelect(row)).length;
+    if ($('selected-count')) {
+      setText('selected-count', count);
+    } else {
+      setApplyLabel(defaultApplyLabel(count));
+    }
+    if ($('apply-selected')) $('apply-selected').disabled = count === 0;
+  }
+
+  $('csv-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const file = $('csv-file').files[0];
+    if (!file) return;
+    $('upload-btn').disabled = true;
+    message($('upload-message'), 'Validating worksheet…', 'warn');
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const response = await fetch(app.dataset.previewUrl, {
+        method: 'POST', headers: {'X-CSRFToken': csrf}, body: form
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Validation failed');
+      rows = data.rows.map(row => ({...row, selected: row.status === 'ready', confirm_name_update: false}));
+      currentPage = 1;
+      $('review-panel').classList.remove('hidden');
+      message($('upload-message'), `${rows.length} rows loaded and validated.`, 'success');
+      renderSummary();
+      renderTable();
+    } catch (error) {
+      message($('upload-message'), error.message);
+    } finally {
+      $('upload-btn').disabled = false;
+    }
+  });
+
+  $('review-body').addEventListener('change', event => {
+    const id = event.target.dataset.rowCheck;
+    if (!id) return;
+    const row = rowById(id);
+    if (row) row.selected = event.target.checked;
+    updateSelectedCount();
+  });
+
+  $('review-body').addEventListener('click', event => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const row = rowById(button.dataset.id);
+    if (!row) return;
+    if (button.dataset.action === 'confirm-name') {
+      const systemName = row.student?.name || '';
+      if (confirm(`Update the system learner name from "${systemName}" to "${row.csv_name}" when linking?`)) {
+        row.confirm_name_update = true;
+        row.status = 'ready_name_update';
+        row.selected = true;
+        renderSummary();
+        renderTable();
+      }
+    } else {
+      openModal(row);
+    }
+  });
+
+  $('check-page').addEventListener('change', event => {
+    currentRows().forEach(row => {
+      if (canSelect(row)) row.selected = event.target.checked;
+    });
+    renderTable();
+  });
+
+  $('select-ready').addEventListener('click', () => {
+    currentRows().forEach(row => row.selected = canSelect(row));
+    renderTable();
+  });
+
+  $('prev-page').addEventListener('click', () => {
+    if (currentPage > 1) { currentPage--; renderTable(); }
+  });
+  $('next-page').addEventListener('click', () => {
+    if (currentPage < Math.ceil(rows.length / pageSize)) { currentPage++; renderTable(); }
+  });
+
+  async function parseJsonResponse(response) {
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      throw new Error(response.ok
+        ? 'Server returned an unexpected response while saving.'
+        : `Server error while saving (HTTP ${response.status}). Try again with fewer rows.`);
+    }
+  }
+
+  async function saveRowChunk(chunk) {
+    const response = await fetch(app.dataset.applyUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+      body: JSON.stringify({rows: chunk.map(row => ({
+        row_id: row.row_id, adm_no: row.adm_no, csv_name: row.csv_name,
+        guardian_name: row.guardian_name, phone: row.phone,
+        confirm_name_update: row.confirm_name_update === true,
+      }))}),
+    });
+    const data = await parseJsonResponse(response);
+    if (!data.success) throw new Error(data.error || 'Batch failed');
+    return data;
+  }
+
+  $('apply-selected').addEventListener('click', async () => {
+    const selected = currentRows().filter(row => row.selected && canSelect(row));
+    if (!selected.length) return;
+    if (!confirm(`Submit and permanently save ${selected.length} guardian link${selected.length === 1 ? '' : 's'} from this batch?`)) return;
+    $('apply-selected').disabled = true;
+    setApplyLabel('<i class="fas fa-spinner fa-spin mr-1"></i> Saving batch…');
+    let linked = 0;
+    let failed = 0;
+    try {
+      const chunkSize = 10;
+      for (let i = 0; i < selected.length; i += chunkSize) {
+        const chunk = selected.slice(i, i + chunkSize);
+        setApplyLabel(
+          `<i class="fas fa-spinner fa-spin mr-1"></i> Saving ${Math.min(i + chunk.length, selected.length)} / ${selected.length}…`
+        );
+        const data = await saveRowChunk(chunk);
+        linked += data.linked || 0;
+        failed += data.failed || 0;
+        (data.results || []).forEach(result => {
+          const row = rowById(result.row_id);
+          if (!row) return;
+          row.selected = false;
+          row.status = result.status;
+          row.error = result.error || '';
+          if (result.student_name && row.student) row.student.name = result.student_name;
+        });
+        renderSummary();
+        renderTable();
+      }
+      message($('upload-message'), `Batch saved: ${linked} guardian links saved, ${failed} failed.`, failed ? 'warn' : 'success');
+    } catch (error) {
+      message($('upload-message'), error.message);
+      renderSummary();
+      renderTable();
+    } finally {
+      setApplyLabel(defaultApplyLabel());
+      updateSelectedCount();
+    }
+  });
+
+  async function loadModalClasses(schoolId, selectedId) {
+    $('m-class').innerHTML = '<option value="">— Select class —</option>';
+    if (!schoolId) return;
+    const response = await fetch(`${app.dataset.classesUrl}?school_id=${encodeURIComponent(schoolId)}`);
+    const data = await response.json();
+    (data.classes || []).forEach(item => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.name;
+      $('m-class').appendChild(option);
+    });
+    if (selectedId) $('m-class').value = String(selectedId);
+  }
+
+  async function openModal(row) {
+    modalRowId = row.row_id;
+    $('m-student-name').value = row.csv_name || row.student?.name || '';
+    $('m-adm').value = row.adm_no || '';
+    $('m-guardian-name').value = row.guardian_name || '';
+    $('m-phone').value = row.phone || '';
+    if (row.student?.school_id) $('m-school').value = String(row.student.school_id);
+    $('m-status').value = row.student?.status || 'Active';
+    await loadModalClasses($('m-school').value, row.student?.class_id);
+    $('modal-system-info').textContent = row.student
+      ? `System learner: ${row.student.name} · ${row.student.school || 'No school'} · ${row.student.class_name || 'No class'}`
+      : 'This admission number is not in the system. Saving will create the learner.';
+    $('modal-message').classList.add('hidden');
+    $('learner-modal').classList.remove('hidden');
+  }
+
+  function closeModal() {
+    $('learner-modal').classList.add('hidden');
+    modalRowId = null;
+  }
+  $('close-modal').addEventListener('click', closeModal);
+  $('cancel-modal').addEventListener('click', closeModal);
+  $('m-school').addEventListener('change', () => loadModalClasses($('m-school').value, null));
+
+  $('save-modal').addEventListener('click', async () => {
+    const row = rowById(modalRowId);
+    if (!row) return;
+    const studentName = $('m-student-name').value.trim();
+    const admNo = $('m-adm').value.trim();
+    const guardianName = $('m-guardian-name').value.trim();
+    const phone = $('m-phone').value.trim();
+    if (!studentName || !admNo) {
+      message($('modal-message'), 'Student name and admission number are required.');
+      return;
+    }
+    $('save-modal').disabled = true;
+    try {
+      const response = await fetch(app.dataset.createUrl, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+        body: JSON.stringify({
+          student_name: studentName, adm_no: admNo,
+          school_id: $('m-school').value, class_id: $('m-class').value,
+          status: $('m-status').value,
+        }),
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Could not save learner');
+      row.csv_name = studentName;
+      row.adm_no = admNo;
+      row.guardian_name = guardianName || (phone ? `Guardian ${phone.replace(/\D/g, '').slice(-4)}` : '');
+      row.phone = phone;
+      row.phone_valid = phone.replace(/\D/g, '').length >= 9;
+      row.student = data.student;
+      row.matched_names = [];
+      row.confirm_name_update = false;
+      row.status = row.phone_valid ? 'ready' : 'invalid_guardian';
+      row.selected = row.status === 'ready';
+      closeModal();
+      renderSummary();
+      renderTable();
+    } catch (error) {
+      message($('modal-message'), error.message);
+    } finally {
+      $('save-modal').disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}

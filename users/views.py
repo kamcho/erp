@@ -7,6 +7,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
 from .models import MyUser
 from .forms import AdminUserCreationForm, UserUpdateForm, UserProfileUpdateForm
+from core.models import School
+
 
 class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = MyUser
@@ -167,6 +169,7 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         
         q = self.request.GET.get('q')
         role = self.request.GET.get('role')
+        school_id = self.request.GET.get('school')
         
         if q:
             queryset = queryset.filter(
@@ -178,6 +181,21 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
             
         if role:
             queryset = queryset.filter(role=role)
+
+        if school_id:
+            guardian_in_school = Q(
+                role='Guardian',
+                students__studentprofile__school_id=school_id,
+            )
+            staff_in_school = Q(school_id=school_id)
+            if role == 'Guardian':
+                # Guardians are not school-assigned; match by linked learners
+                queryset = queryset.filter(guardian_in_school).distinct()
+            elif role:
+                queryset = queryset.filter(staff_in_school)
+            else:
+                # All roles: staff at school + guardians with learners there
+                queryset = queryset.filter(staff_in_school | guardian_in_school).distinct()
             
         return queryset
 
@@ -191,9 +209,11 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         
         # Roles for filter dropdown
         context['roles'] = MyUser.ROLE_CHOICES
+        context['schools'] = School.objects.all().order_by('name')
         
         # Current filters to persist in pagination and UI
         context['q'] = self.request.GET.get('q', '')
         context['selected_role'] = self.request.GET.get('role', '')
+        context['selected_school'] = self.request.GET.get('school', '')
         
         return context

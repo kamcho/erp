@@ -21,7 +21,7 @@ jobs:
             git fetch origin main
             # Discard local server edits so CI deploys are never blocked
             git reset --hard origin/main
-            git clean -fd -e venv -e media -e staticfiles -e .env -e '*.sqlite3'
+            git clean -fd -e venv -e media -e staticfiles -e .env -e backups -e logs -e '*.sqlite3'
             source venv/bin/activate
             python manage.py migrate --noinput
             python manage.py collectstatic --noinput

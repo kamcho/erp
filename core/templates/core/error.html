@@ -45,19 +45,24 @@
     <div class="relative z-10 w-full max-w-2xl text-center">
         <!-- Error Graphic / Icon -->
         <div class="mb-10 relative inline-block animate-float">
-            <div class="absolute inset-0 bg-rose-500/20 rounded-full blur-2xl"></div>
-            <div class="w-32 h-32 bg-white dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-2xl shadow-rose-500/10 flex items-center justify-center relative rotate-3 hover:rotate-6 transition-transform duration-500">
+            <div class="absolute inset-0 {% if is_403 %}bg-amber-500/20{% else %}bg-rose-500/20{% endif %} rounded-full blur-2xl"></div>
+            <div class="w-32 h-32 bg-white dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-2xl {% if is_403 %}shadow-amber-500/10{% else %}shadow-rose-500/10{% endif %} flex items-center justify-center relative rotate-3 hover:rotate-6 transition-transform duration-500">
+                {% if is_403 %}
+                <i class="fas fa-lock text-6xl text-amber-500"></i>
+                {% else %}
                 <i class="fas fa-tools text-6xl text-rose-500 bg-clip-text"></i>
-                <!-- Small spark/gear icon -->
                 <div class="absolute -top-4 -right-4 w-12 h-12 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg flex items-center justify-center -rotate-12">
                     <i class="fas fa-cog text-indigo-500 animate-spin-slow" style="animation-duration: 4s;"></i>
                 </div>
+                {% endif %}
             </div>
         </div>
 
         <!-- Content -->
         <h1 class="text-4xl md:text-5xl font-black mb-4 tracking-tight text-slate-900 dark:text-white">
-            {% if is_404 %}
+            {% if is_403 %}
+            Access Forbidden
+            {% elif is_404 %}
             Page Not Found (404)
             {% else %}
             Oops! It's not you, it's us.
@@ -65,7 +70,14 @@
         </h1>
         
         <p class="text-lg md:text-xl text-slate-500 dark:text-slate-400 mb-8 max-w-lg mx-auto leading-relaxed">
-            {% if is_404 %}
+            {% if is_403 %}
+            You are not allowed to view this page.
+            {% if error_message %}
+            <span class="block mt-3 font-bold text-slate-700 dark:text-slate-300">{{ error_message }}</span>
+            {% else %}
+            <span class="block mt-3 font-bold text-slate-700 dark:text-slate-300">If you believe this is a mistake, contact the school administration.</span>
+            {% endif %}
+            {% elif is_404 %}
             We couldn't find the page you're looking for. Don't worry, 
             <span class="font-bold text-slate-700 dark:text-slate-300">our engineering team has been notified</span> 
             and we're looking into why this link is broken to fix it!

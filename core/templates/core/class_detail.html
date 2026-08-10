@@ -208,7 +208,9 @@
             <h3 class="text-[15px] font-bold text-slate-800">Student Roster</h3>
             <div class="relative group">
                 <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                <input type="text" placeholder="Quick search..." class="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-indigo-500 transition-all w-48">
+                <input id="roster-search" type="text" placeholder="Quick search..."
+                       class="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-indigo-500 transition-all w-48"
+                       autocomplete="off">
             </div>
         </div>
         
@@ -224,9 +226,12 @@
                 </thead>
                 <tbody class="divide-y divide-slate-50">
                     {% for profile in students %}
-                    <tr class="group hover:bg-slate-50/50 transition-colors {% if forloop.counter > 6 %}hidden extra-student-row{% endif %}">
+                    <tr class="group hover:bg-slate-50/50 transition-colors roster-student-row {% if forloop.counter > 6 %}hidden extra-student-row{% endif %}"
+                        data-student-id="{{ profile.student.id }}"
+                        data-adm="{{ profile.student.adm_no|default:''|escape }}"
+                        data-name="{{ profile.student.get_full_name|default:''|escape }}">
                         <td class="py-3 px-1">
-                            <span class="text-[12px] font-semibold text-slate-800 bg-slate-100 px-2 py-1 rounded">{{ profile.student.adm_no }}</span>
+                            <span class="roster-adm-label text-[12px] font-semibold text-slate-800 bg-slate-100 px-2 py-1 rounded">{{ profile.student.adm_no|default:"—" }}</span>
                         </td>
                         <td class="py-3 px-1">
                             <div class="flex items-center gap-3">
@@ -251,6 +256,17 @@
                             </span>
                         </td>
                         <td class="py-3 px-1 text-right">
+                            <div class="inline-flex items-center gap-1">
+                            {% if can_roster_quick_edit %}
+                            <button type="button"
+                                    class="roster-quick-edit inline-flex items-center justify-center w-8 h-8 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+                                    title="Quick edit"
+                                    data-student-id="{{ profile.student.id }}"
+                                    data-student-name="{{ profile.student.get_full_name|escape }}"
+                                    data-adm="{{ profile.student.adm_no|default:''|escape }}">
+                                <i class="fas fa-pen text-xs"></i>
+                            </button>
+                            {% endif %}
                             {% if user.role != 'Guardian' or profile.student.id in my_children_ids %}
                             <a href="{% url 'core:student-detail' profile.student.pk %}" class="inline-flex items-center justify-center w-8 h-8 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all">
                                 <i class="fas fa-eye text-xs"></i>
@@ -260,6 +276,7 @@
                                 <i class="fas fa-eye-slash text-xs"></i>
                             </span>
                             {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
@@ -364,10 +381,66 @@
         {% endif %}
     </div>
 
+    {% if can_roster_quick_edit %}
+    <div id="roster-quick-edit-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 p-4 overflow-y-auto">
+        <div class="max-w-lg mx-auto my-8 bg-white rounded-2xl shadow-2xl border border-slate-200">
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-extrabold text-slate-900">Quick edit</h2>
+                    <p id="rqe-student-label" class="text-xs text-slate-500 mt-0.5"></p>
+                </div>
+                <button type="button" id="rqe-close" class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <label class="block text-xs font-bold text-slate-500">Admission number
+                    <input id="rqe-adm" type="text" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500">
+                </label>
+                <div class="rounded-xl border border-violet-100 bg-violet-50/40 p-4 space-y-3">
+                    <h3 class="text-sm font-extrabold text-violet-700"><i class="fas fa-user-friends mr-1"></i> Primary guardian</h3>
+                    <label class="block text-xs font-bold text-slate-500">Guardian name
+                        <input id="rqe-guardian-name" type="text" placeholder="Parent / guardian full name"
+                               class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:border-violet-500">
+                    </label>
+                    <label class="block text-xs font-bold text-slate-500">Guardian phone
+                        <input id="rqe-phone" type="text" inputmode="tel" placeholder="0712345678"
+                               class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold outline-none focus:border-violet-500">
+                    </label>
+                    <div id="rqe-phone-status" class="hidden text-xs font-semibold rounded-lg px-3 py-2"></div>
+                </div>
+                <div class="rounded-xl border border-sky-100 bg-sky-50/40 p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-sm font-extrabold text-sky-700"><i class="fas fa-user-plus mr-1"></i> Second guardian <span class="font-semibold text-sky-500">(optional)</span></h3>
+                    </div>
+                    <label class="block text-xs font-bold text-slate-500">Guardian name
+                        <input id="rqe-guardian-name-2" type="text" placeholder="Second parent / guardian full name"
+                               class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:border-sky-500">
+                    </label>
+                    <label class="block text-xs font-bold text-slate-500">Guardian phone
+                        <input id="rqe-phone-2" type="text" inputmode="tel" placeholder="0712345678"
+                               class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold outline-none focus:border-sky-500">
+                    </label>
+                    <div id="rqe-phone-status-2" class="hidden text-xs font-semibold rounded-lg px-3 py-2"></div>
+                </div>
+                <div id="rqe-linked" class="text-[11px] text-slate-500"></div>
+                <div id="rqe-message" class="hidden rounded-lg px-4 py-3 text-sm font-medium"></div>
+            </div>
+            <div class="p-5 border-t border-slate-100 flex justify-end gap-2">
+                <button type="button" id="rqe-cancel" class="px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600">Cancel</button>
+                <button type="button" id="rqe-save" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold">
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {% if is_admin_view %}
     <!-- Assign Teacher Modal -->
     <div id="assignTeacherModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 transform scale-95 opacity-0 transition-all duration-300" id="assignTeacherModalContent">
+
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-xl font-black text-slate-800">Assign Teacher</h2>
                 <button onclick="closeAssignTeacherModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
@@ -517,23 +590,24 @@
         }
     });
 
+    let rosterExpanded = false;
+
     function toggleMoreStudents() {
         const extraRows = document.querySelectorAll('.extra-student-row');
         const card = document.getElementById('student-roster-card');
         const btn = document.getElementById('view-more-students-btn');
+        const search = document.getElementById('roster-search');
         if (!extraRows.length) return;
-        
-        const isHidden = extraRows[0].classList.contains('hidden');
 
-        extraRows.forEach(row => {
-            if (isHidden) {
-                row.classList.remove('hidden');
-            } else {
-                row.classList.add('hidden');
-            }
-        });
+        // If a search is active, clear it so expand/collapse behaves normally.
+        if (search && search.value.trim()) {
+            search.value = '';
+        }
 
-        if (isHidden) {
+        rosterExpanded = !rosterExpanded;
+        applyRosterVisibility();
+
+        if (rosterExpanded) {
             if (card) {
                 card.classList.remove('h-[500px]');
                 card.classList.add('h-auto');
@@ -548,6 +622,70 @@
             if (btn) btn.innerText = 'View All';
         }
     }
+
+    function applyRosterVisibility() {
+        const search = document.getElementById('roster-search');
+        const query = (search?.value || '').trim().toLowerCase();
+        const rows = document.querySelectorAll('.roster-student-row');
+        const card = document.getElementById('student-roster-card');
+        const btn = document.getElementById('view-more-students-btn');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const adm = (row.dataset.adm || '').toLowerCase();
+            const name = (row.dataset.name || '').toLowerCase();
+            const matches = !query || adm.includes(query) || name.includes(query);
+            const isExtra = row.classList.contains('extra-student-row');
+
+            if (!matches) {
+                row.classList.add('hidden');
+                return;
+            }
+
+            if (query || rosterExpanded || !isExtra) {
+                row.classList.remove('hidden');
+                visibleCount += 1;
+            } else {
+                row.classList.add('hidden');
+            }
+        });
+
+        if (query) {
+            if (card) {
+                card.classList.remove('h-[500px]');
+                card.classList.add('h-auto');
+            }
+            if (btn) btn.classList.add('hidden');
+        } else {
+            if (btn) btn.classList.remove('hidden');
+            if (!rosterExpanded && card) {
+                card.classList.add('h-[500px]');
+                card.classList.remove('h-auto');
+            }
+        }
+
+        let emptyRow = document.getElementById('roster-empty-search');
+        if (query && visibleCount === 0) {
+            if (!emptyRow) {
+                const tbody = document.querySelector('#student-roster-card tbody');
+                if (tbody) {
+                    emptyRow = document.createElement('tr');
+                    emptyRow.id = 'roster-empty-search';
+                    emptyRow.innerHTML = '<td colspan="4" class="py-8 text-center text-slate-400 text-sm">No students match that search.</td>';
+                    tbody.appendChild(emptyRow);
+                }
+            }
+        } else if (emptyRow) {
+            emptyRow.remove();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const search = document.getElementById('roster-search');
+        if (search) {
+            search.addEventListener('input', applyRosterVisibility);
+        }
+    });
 
     function openAssignTeacherModal() {
         const modal = document.getElementById('assignTeacherModal');
@@ -571,5 +709,287 @@
             }, 300);
         }
     }
+
+    {% if can_roster_quick_edit %}
+    (function() {
+        const csrf = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '{{ csrf_token }}';
+        const modal = document.getElementById('roster-quick-edit-modal');
+        if (!modal) return;
+
+        const els = {
+            label: document.getElementById('rqe-student-label'),
+            adm: document.getElementById('rqe-adm'),
+            name: document.getElementById('rqe-guardian-name'),
+            phone: document.getElementById('rqe-phone'),
+            status: document.getElementById('rqe-phone-status'),
+            name2: document.getElementById('rqe-guardian-name-2'),
+            phone2: document.getElementById('rqe-phone-2'),
+            status2: document.getElementById('rqe-phone-status-2'),
+            linked: document.getElementById('rqe-linked'),
+            message: document.getElementById('rqe-message'),
+            save: document.getElementById('rqe-save'),
+        };
+        let studentId = null;
+        let confirmLink = [false, false];
+        let phoneTimers = [null, null];
+
+        function showMsg(text, ok) {
+            if (!els.message) return;
+            if (!text) {
+                els.message.classList.add('hidden');
+                els.message.textContent = '';
+                return;
+            }
+            els.message.textContent = text;
+            els.message.className = 'rounded-lg px-4 py-3 text-sm font-medium ' +
+                (ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100');
+        }
+
+        function setPhoneStatus(slot, html, kind) {
+            const statusEl = slot === 1 ? els.status2 : els.status;
+            if (!statusEl) return;
+            if (!html) {
+                statusEl.classList.add('hidden');
+                statusEl.innerHTML = '';
+                return;
+            }
+            const colors = {
+                found: 'bg-amber-50 text-amber-800 border border-amber-100',
+                linked: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+                new: 'bg-sky-50 text-sky-700 border border-sky-100',
+                idle: 'bg-slate-50 text-slate-600 border border-slate-100',
+            };
+            statusEl.className = 'text-xs font-semibold rounded-lg px-3 py-2 ' + (colors[kind] || colors.idle);
+            statusEl.innerHTML = html;
+            statusEl.classList.remove('hidden');
+        }
+
+        function renderLinked(guardians) {
+            if (!els.linked) return;
+            if (!guardians || !guardians.length) {
+                els.linked.textContent = 'No guardians linked yet.';
+                return;
+            }
+            els.linked.innerHTML = 'Linked: ' + guardians.map(g => {
+                const phone = g.phone ? ` (${g.phone})` : '';
+                return `<span class="font-bold text-slate-700">${g.name}</span>${phone}`;
+            }).join(' · ');
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+            studentId = null;
+            confirmLink = [false, false];
+            showMsg('');
+            setPhoneStatus(0, '');
+            setPhoneStatus(1, '');
+            if (els.save) els.save.textContent = 'Save';
+        }
+
+        async function openModal(id, fallbackName, fallbackAdm) {
+            studentId = id;
+            confirmLink = [false, false];
+            showMsg('');
+            setPhoneStatus(0, '');
+            setPhoneStatus(1, '');
+            if (els.save) els.save.textContent = 'Save';
+            if (els.label) els.label.textContent = fallbackName || '';
+            if (els.adm) els.adm.value = fallbackAdm || '';
+            if (els.name) els.name.value = '';
+            if (els.phone) els.phone.value = '';
+            if (els.name2) els.name2.value = '';
+            if (els.phone2) els.phone2.value = '';
+            if (els.linked) els.linked.textContent = 'Loading…';
+            modal.classList.remove('hidden');
+
+            try {
+                const res = await fetch(`/student/${id}/roster-quick-edit/`);
+                const data = await res.json();
+                if (!data.success) {
+                    showMsg(data.error || 'Could not load student', false);
+                    return;
+                }
+                if (els.label) els.label.textContent = data.student.name;
+                if (els.adm) els.adm.value = data.student.adm_no || '';
+                renderLinked(data.guardians);
+                if (data.guardians && data.guardians.length) {
+                    const g1 = data.guardians[0];
+                    if (els.name) els.name.value = g1.name || '';
+                    if (els.phone) els.phone.value = g1.phone || '';
+                    if (data.guardians.length > 1) {
+                        const g2 = data.guardians[1];
+                        if (els.name2) els.name2.value = g2.name || '';
+                        if (els.phone2) els.phone2.value = g2.phone || '';
+                    }
+                }
+            } catch (e) {
+                showMsg('Failed to load student details', false);
+            }
+        }
+
+        async function lookupPhone(slot) {
+            if (!studentId) return;
+            const phoneEl = slot === 1 ? els.phone2 : els.phone;
+            if (!phoneEl) return;
+            const phone = phoneEl.value.trim();
+            confirmLink[slot] = false;
+            if (els.save) els.save.textContent = 'Save';
+            if (!phone) {
+                setPhoneStatus(slot, '');
+                return;
+            }
+            try {
+                const res = await fetch(`/student/${studentId}/roster-quick-edit/?phone=${encodeURIComponent(phone)}`);
+                const data = await res.json();
+                if (!data.success) return;
+                if (data.found_guardian) {
+                    const g = data.found_guardian;
+                    if (g.already_linked) {
+                        setPhoneStatus(slot, `Already linked: <strong>${g.name}</strong>`, 'linked');
+                        confirmLink[slot] = true;
+                    } else {
+                        setPhoneStatus(
+                            slot,
+                            `Found existing guardian <strong>${g.name}</strong>. Save will ask you to confirm linking.`,
+                            'found'
+                        );
+                    }
+                } else {
+                    setPhoneStatus(slot, 'No guardian with this phone — a new account will be created and linked on save.', 'new');
+                }
+            } catch (e) { /* ignore lookup errors */ }
+        }
+
+        function collectGuardians(forceConfirm) {
+            return [
+                {
+                    guardian_name: els.name ? els.name.value.trim() : '',
+                    phone: els.phone ? els.phone.value.trim() : '',
+                    confirm_link: !!(forceConfirm || confirmLink[0]),
+                },
+                {
+                    guardian_name: els.name2 ? els.name2.value.trim() : '',
+                    phone: els.phone2 ? els.phone2.value.trim() : '',
+                    confirm_link: !!(forceConfirm || confirmLink[1]),
+                },
+            ].filter(g => g.phone || g.guardian_name);
+        }
+
+        async function save(forceConfirm) {
+            if (!studentId) return;
+            showMsg('');
+            const payload = {
+                adm_no: els.adm ? els.adm.value.trim() : '',
+                guardians: collectGuardians(forceConfirm),
+            };
+            if (els.save) {
+                els.save.disabled = true;
+                els.save.textContent = 'Saving…';
+            }
+            try {
+                const res = await fetch(`/student/${studentId}/roster-quick-edit/save/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json();
+                if (data.needs_confirm && data.guardian) {
+                    if (typeof data.adm_no === 'string') {
+                        const row = document.querySelector(`.roster-student-row[data-student-id="${studentId}"]`);
+                        if (row) {
+                            row.dataset.adm = data.adm_no;
+                            const label = row.querySelector('.roster-adm-label');
+                            if (label) label.textContent = data.adm_no || '—';
+                        }
+                    }
+                    const g = data.guardian;
+                    const slot = typeof data.guardian_index === 'number' ? data.guardian_index : 0;
+                    if (g.already_linked) {
+                        confirmLink[slot] = true;
+                        return save(false);
+                    }
+                    const ok = window.confirm(
+                        data.message || `Link guardian ${g.name} (${g.phone}) to this learner?`
+                    );
+                    if (ok) {
+                        confirmLink[slot] = true;
+                        return save(false);
+                    }
+                    setPhoneStatus(
+                        slot,
+                        `Found <strong>${g.name}</strong> (${g.phone}). Click Save again and confirm to link.`,
+                        'found'
+                    );
+                    if (els.save) {
+                        els.save.disabled = false;
+                        els.save.textContent = 'Link & Save';
+                    }
+                    return;
+                }
+                if (!data.success) {
+                    showMsg(data.error || 'Save failed', false);
+                    if (els.save) {
+                        els.save.disabled = false;
+                        els.save.textContent = confirmLink.some(Boolean) ? 'Link & Save' : 'Save';
+                    }
+                    return;
+                }
+                const row = document.querySelector(`.roster-student-row[data-student-id="${studentId}"]`);
+                if (row) {
+                    const adm = data.adm_no || '';
+                    row.dataset.adm = adm;
+                    const label = row.querySelector('.roster-adm-label');
+                    if (label) label.textContent = adm || '—';
+                    const btn = row.querySelector('.roster-quick-edit');
+                    if (btn) btn.dataset.adm = adm;
+                }
+                if (data.guardians) renderLinked(data.guardians);
+                let note = 'Saved.';
+                const actions = data.guardian_actions || [];
+                if (actions.includes('created_and_linked') && actions.includes('linked_existing')) {
+                    note = 'Saved — guardians created/linked.';
+                } else if (actions.length > 1) {
+                    note = 'Saved — both guardians linked.';
+                } else if (actions[0] === 'created_and_linked' || data.guardian_action === 'created_and_linked') {
+                    note = 'Saved — new guardian created and linked.';
+                } else if (actions[0] === 'linked_existing' || data.guardian_action === 'linked_existing') {
+                    note = 'Saved — guardian linked.';
+                } else if (actions[0] === 'already_linked' || data.guardian_action === 'already_linked') {
+                    note = 'Saved — guardian already linked.';
+                }
+                showMsg(note, true);
+                if (els.save) {
+                    els.save.disabled = false;
+                    els.save.textContent = 'Save';
+                }
+                setTimeout(closeModal, 700);
+            } catch (e) {
+                showMsg('Network error while saving', false);
+                if (els.save) {
+                    els.save.disabled = false;
+                    els.save.textContent = 'Save';
+                }
+            }
+        }
+
+        document.querySelectorAll('.roster-quick-edit').forEach(btn => {
+            btn.addEventListener('click', () => {
+                openModal(btn.dataset.studentId, btn.dataset.studentName, btn.dataset.adm);
+            });
+        });
+        document.getElementById('rqe-close')?.addEventListener('click', closeModal);
+        document.getElementById('rqe-cancel')?.addEventListener('click', closeModal);
+        els.save?.addEventListener('click', () => save(false));
+        modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+        els.phone?.addEventListener('input', () => {
+            clearTimeout(phoneTimers[0]);
+            phoneTimers[0] = setTimeout(() => lookupPhone(0), 400);
+        });
+        els.phone2?.addEventListener('input', () => {
+            clearTimeout(phoneTimers[1]);
+            phoneTimers[1] = setTimeout(() => lookupPhone(1), 400);
+        });
+    })();
+    {% endif %}
 </script>
 {% endblock %}

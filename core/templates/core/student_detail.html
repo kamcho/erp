@@ -81,7 +81,7 @@
     </div>
     
     <div class="flex flex-wrap items-center gap-3">
-        {% if user.role == 'Admin' or user.is_superuser %}
+        {% if user.role == 'Admin' or user.role == 'Receptionist' or user.is_superuser %}
         <a href="{% url 'core:update-student' student.id %}" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[13px] font-bold hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm">
             <i class="fas fa-edit text-slate-400"></i> Edit Profile
         </a>
@@ -130,35 +130,35 @@
                 </div>
             </div>
             <p class="text-[13px] font-medium text-slate-500 mb-4">
-                {% if profile.fee_balance|add:aux_balance < 0 %}Credit Balance{% else %}Due Balance{% endif %}
+                {% if profile.fee_balance|add:aux_balance < 0 %}Overpayment{% elif profile.fee_balance|add:aux_balance > 0 %}Due Balance{% else %}Cleared{% endif %}
             </p>
-            <div class="text-[12px] text-indigo-500 font-semibold flex items-center justify-between pt-4 border-t border-slate-100">
-                <div class="flex items-center gap-1.5">
-                    <i class="fas fa-receipt text-[10px]"></i>
-                    <span>Current Account</span>
-                </div>
-                <button onclick="openPaymentModal('{{ student.id|escapejs }}', '{{ student.get_full_name|escapejs }}', '{{ profile.fee_balance|default:0|escapejs }}')" 
-                        class="px-2 py-0.5 rounded bg-indigo-600 text-white text-[10px] font-black uppercase hover:bg-indigo-700 transition-colors">Pay</button>
+            <div class="text-[12px] text-indigo-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+                <i class="fas fa-receipt text-[10px]"></i>
+                <span>Current Account</span>
             </div>
         </div>
         {% endif %}
 
-        <!-- Lunch Subscription Card -->
-        <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <!-- Auxiliary Charge Balance Card -->
+        {% if can_view_fees %}
+        <a href="#auxiliary-services" class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow block">
             <div class="flex items-center gap-3 mb-2">
-                <div class="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center">
-                    <i class="fas fa-pizza-slice text-purple-600 text-sm"></i>
+                <div class="w-8 h-8 rounded-full {% if aux_balance > 0 %}bg-amber-50{% else %}bg-emerald-50{% endif %} flex items-center justify-center">
+                    <i class="fas fa-layer-group {% if aux_balance > 0 %}text-amber-500{% else %}text-emerald-500{% endif %} text-sm"></i>
                 </div>
-                <div class="text-[24px] font-extrabold text-slate-800">
-                    {% if active_lunch_subscription %}{{ active_lunch_subscription.days_remaining }}<span class="text-xs ml-1 text-slate-400">Days</span>{% else %}Inactive{% endif %}
+                <div class="text-[28px] font-extrabold {% if aux_balance > 0 %}text-amber-600{% elif aux_balance < 0 %}text-emerald-600{% else %}text-slate-800{% endif %}">
+                    {{ aux_balance|default:"0"|abs_val|floatformat:0 }}
                 </div>
             </div>
-            <p class="text-[13px] font-medium text-slate-500 mb-4">Lunch Subscription</p>
-            <div class="text-[12px] text-purple-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
-                <i class="fas fa-user-shield text-[10px]"></i>
-                <span>Discipline Level: {{ profile.discipline }}</span>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">
+                {% if aux_balance < 0 %}Auxiliary Overpayment{% elif aux_balance > 0 %}Auxiliary Balance Due{% else %}Auxiliary Cleared{% endif %}
+            </p>
+            <div class="text-[12px] text-amber-600 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+                <i class="fas fa-receipt text-[10px]"></i>
+                <span>Auxiliary Charge Balance</span>
             </div>
-        </div>
+        </a>
+        {% endif %}
     </div>
 
     <!-- Analysis Section -->
@@ -266,101 +266,109 @@
         </div>
     </div>
 
-    <!-- Second Row: Profile and Learning Analytics side-by-side -->
+    <!-- Second Row: CBE Pathway Insight and Learning Analytics side-by-side -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        <!-- Student Particulars Card (LHS) -->
+        <!-- Inferred CBE Pathway (LHS) -->
         <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-md">
-                        <i class="fas fa-id-card text-xs"></i>
+                        <i class="fas fa-route text-xs"></i>
                     </div>
                     <div>
-                        <h3 class="text-sm font-black text-slate-800">Student Profile</h3>
-                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Personal & Academic Classification</p>
+                        <h3 class="text-sm font-black text-slate-800">CBE Pathway Insight</h3>
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                            KICD Senior School Fit
+                            {% if pathway_insight.exam_label %} · {{ pathway_insight.exam_label }}{% endif %}
+                        </p>
                     </div>
                 </div>
                 {% if can_make_payments %}
-                <button onclick="openStatusModal('{{ student.is_boarder|lower }}', '{{ student.fee_category|escapejs }}')" 
-                    class="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all transition-all duration-200">
+                <button onclick="openStatusModal('{{ student.is_boarder|lower }}', '{{ student.fee_category|escapejs }}')"
+                    class="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all">
                     Update Status
                 </button>
                 {% endif %}
             </div>
+
             <div class="p-6 flex-grow">
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
-                    <!-- Birthday -->
-                    <div class="space-y-1">
-                        <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest block">Birthday</span>
-                        <p class="text-xs font-bold text-slate-700">{{ student.date_of_birth|date:"d M, Y" }}</p>
+                {% if pathway_insight.has_data and pathway_insight.recommended %}
+                <div class="flex flex-col md:flex-row md:items-start gap-6 mb-6">
+                    <div class="flex-1">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Inferred pathway</p>
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <span class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-black
+                                {% if pathway_insight.recommended.key == 'stem' %}bg-indigo-50 text-indigo-700 border border-indigo-100
+                                {% elif pathway_insight.recommended.key == 'social' %}bg-sky-50 text-sky-700 border border-sky-100
+                                {% else %}bg-amber-50 text-amber-700 border border-amber-100{% endif %}">
+                                <i class="fas {{ pathway_insight.recommended.icon }}"></i>
+                                {{ pathway_insight.recommended.full_name }}
+                            </span>
+                            <span class="text-xs font-bold text-slate-500">
+                                {{ pathway_insight.confidence }}% confidence
+                            </span>
+                        </div>
+                        <p class="text-sm text-slate-600 mt-3 leading-relaxed">{{ pathway_insight.rationale }}</p>
                     </div>
-                    <!-- Gender -->
-                    <div class="space-y-1">
-                        <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest block">Gender</span>
-                        <p class="text-xs font-bold text-slate-700 capitalize">{{ student.gender }}</p>
-                    </div>
-                    <!-- Residency -->
-                    <div class="space-y-1">
-                        <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest block">Residency</span>
-                        <p class="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full {% if student.is_boarder %}bg-indigo-500{% else %}bg-emerald-500{% endif %}"></span>
-                            {% if student.is_boarder %}Boarder{% else %}Day{% endif %}
-                        </p>
-                    </div>
-                    <!-- Enrollment -->
-                    <div class="space-y-1">
-                        <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest block">Enrolled</span>
-                        <p class="text-xs font-bold text-slate-700">{{ student.joined_date|date:"M Y" }}</p>
-                    </div>
-                    <!-- Status -->
-                    <div class="space-y-1">
-                        <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest block">Status</span>
-                        <p class="text-xs font-bold uppercase flex items-center gap-1.5
-                            {% if profile.status == 'Active' %}text-emerald-600
-                            {% elif profile.status == 'Graduated' %}text-indigo-600
-                            {% elif profile.status == 'Transferred' %}text-amber-600
-                            {% else %}text-slate-500{% endif %}">
-                            <span class="w-1.5 h-1.5 rounded-full
-                                {% if profile.status == 'Active' %}bg-emerald-500
-                                {% elif profile.status == 'Graduated' %}bg-indigo-500
-                                {% elif profile.status == 'Transferred' %}bg-amber-500
-                                {% else %}bg-slate-400{% endif %}"></span>
-                            {{ profile.status|default:"Active" }}
-                        </p>
-                    </div>
-                    <!-- Fee Category -->
-                    <div class="space-y-1">
-                        <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest block">Billing</span>
-                        <p class="text-xs font-bold text-indigo-600 uppercase">{{ student.get_fee_category_display|default:student.fee_category|title }}</p>
-                    </div>
-                    <!-- Transport -->
-                    <div class="space-y-1">
-                        <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest block">Transport</span>
-                        {% if active_transport %}
-                        <p class="text-xs font-bold text-amber-600 truncate" title="{{ active_transport.vehicle.plate_number }}">{{ active_transport.route.name }}</p>
-                        {% else %}
-                        <p class="text-xs font-medium text-slate-400 italic">None</p>
-                        {% endif %}
-                    </div>
-                    <!-- Guardians -->
-                    <div class="col-span-full pt-4 mt-2 border-t border-slate-50 flex items-center justify-between">
-                        <div class="flex items-center gap-4">
-                            <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest">Guardians</span>
-                            <div class="flex flex-wrap gap-2">
-                                {% for g in guardians %}
-                                <button onclick="openGuardianModal('{{ g.id }}', '{{ g.get_full_name|escapejs }}', '{{ g.phone_number|escapejs }}', '{{ g.email|escapejs }}')"
-                                        class="px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-bold text-slate-500 hover:bg-white hover:shadow-sm transition-all flex items-center gap-2 line-clamp-1">
-                                    <span class="w-1 h-1 rounded-full bg-indigo-400"></span>
-                                    {{ g.get_full_name }}
-                                </button>
-                                {% endfor %}
-                            </div>
+                    <div class="w-full md:w-40 shrink-0">
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 text-center">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pathway avg</p>
+                            <p class="text-3xl font-black text-slate-800 mt-1">{{ pathway_insight.recommended.average }}%</p>
+                            <p class="text-[10px] font-bold text-slate-400 mt-1">{{ pathway_insight.recommended.subject_count }} subject{{ pathway_insight.recommended.subject_count|pluralize }}</p>
                         </div>
                     </div>
                 </div>
+
+                <div class="space-y-4">
+                    {% for path in pathway_insight.pathways %}
+                    <div class="{% if path.is_recommended %}ring-2 ring-indigo-100 rounded-xl p-3 bg-indigo-50/30{% else %}px-1{% endif %}">
+                        <div class="flex items-center justify-between gap-3 mb-1.5">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <i class="fas {{ path.icon }} text-xs
+                                    {% if path.key == 'stem' %}text-indigo-500
+                                    {% elif path.key == 'social' %}text-sky-500
+                                    {% else %}text-amber-500{% endif %}"></i>
+                                <span class="text-xs font-black text-slate-700 truncate">{{ path.name }}</span>
+                                {% if path.is_recommended %}
+                                <span class="text-[9px] font-black uppercase tracking-wider text-indigo-600 bg-white border border-indigo-100 px-1.5 py-0.5 rounded">Best fit</span>
+                                {% endif %}
+                            </div>
+                            <span class="text-xs font-black tabular-nums
+                                {% if path.subject_count %}text-slate-700{% else %}text-slate-300{% endif %}">
+                                {% if path.subject_count %}{{ path.average }}%{% else %}—{% endif %}
+                            </span>
+                        </div>
+                        <div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full transition-all
+                                {% if path.key == 'stem' %}bg-indigo-500
+                                {% elif path.key == 'social' %}bg-sky-500
+                                {% else %}bg-amber-500{% endif %}"
+                                 style="width: {{ path.bar_width }}%"></div>
+                        </div>
+                        {% if path.top_subjects %}
+                        <div class="flex flex-wrap gap-1.5 mt-2">
+                            {% for subj in path.top_subjects %}
+                            <span class="px-2 py-0.5 rounded-md bg-white border border-slate-100 text-[10px] font-bold text-slate-500">
+                                {{ subj.name }} · {{ subj.percentage }}%
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="py-10 text-center">
+                    <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300 text-xl">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <p class="text-sm font-bold text-slate-700">No scores to infer a pathway</p>
+                    <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">{{ pathway_insight.rationale }}</p>
+                </div>
+                {% endif %}
             </div>
             <div class="px-6 py-3 bg-slate-50/50 border-t border-slate-100 text-[9px] font-bold text-slate-300 uppercase tracking-widest">
-                Active Academic Period: {{ active_year.name }}
+                Inference uses subject discipline + exam % · Guidance only, not placement
             </div>
         </div>
 
@@ -430,7 +438,74 @@
         </div>
     </div>
 
+    <!-- Linked Users -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-8">
+        <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/30">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-violet-600 text-white flex items-center justify-center shadow-md">
+                    <i class="fas fa-user-friends text-xs"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black text-slate-800">Linked Users</h3>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Guardians & staff with access to this learner</p>
+                </div>
+            </div>
+            {% if can_link_users %}
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" id="linked-users-count">
+                {{ guardians|length }} linked
+            </span>
+            {% endif %}
+        </div>
 
+        <div class="p-6">
+            <div id="linked-users-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 mb-5">
+                {% for g in guardians %}
+                <div class="linked-user-card flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-sm transition-all" data-user-id="{{ g.id }}">
+                    <div class="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 border border-violet-100 flex items-center justify-center text-xs font-black shrink-0">
+                        {{ g.first_name|first|default:g.email|first }}{{ g.last_name|first }}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <button type="button"
+                                onclick="openGuardianModal('{{ g.id }}', '{{ g.get_full_name|escapejs }}', '{{ g.phone_number|escapejs }}', '{{ g.email|escapejs }}')"
+                                class="text-sm font-bold text-slate-800 hover:text-indigo-600 truncate block text-left w-full">
+                            {{ g.get_full_name|default:g.email }}
+                        </button>
+                        <p class="text-[10px] font-semibold text-slate-400 truncate">
+                            {{ g.role }}{% if g.phone_number %} · {{ g.phone_number }}{% endif %}
+                        </p>
+                    </div>
+                    {% if can_link_users %}
+                    <button type="button" onclick="unlinkUserFromStudent({{ g.id }})"
+                            class="w-8 h-8 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors flex items-center justify-center shrink-0"
+                            title="Unlink user">
+                        <i class="fas fa-unlink text-xs"></i>
+                    </button>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div id="linked-users-empty" class="col-span-full py-8 text-center text-slate-400">
+                    <i class="fas fa-user-slash text-2xl opacity-30 mb-2 block"></i>
+                    <p class="text-sm font-bold text-slate-600">No users linked yet</p>
+                    <p class="text-xs mt-1">Search below to attach a guardian or staff account.</p>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if can_link_users %}
+            <div class="pt-4 border-t border-slate-100">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Add linked user</label>
+                <div class="relative max-w-xl">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
+                    <input type="text" id="link-user-search" placeholder="Search by name, phone or email…"
+                           autocomplete="off"
+                           class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all">
+                    <div id="link-user-dropdown" class="absolute z-40 left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden hidden max-h-64 overflow-y-auto"></div>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-2 font-medium">Linking grants portal visibility for this student. Existing accounts only.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 
     <!-- Row 2: Performance Audit -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -572,16 +647,16 @@
             <div class="flex items-center gap-4">
                 <div class="px-5 py-3 bg-slate-50 rounded-xl border border-slate-100/50 text-right">
                     <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Current Balance</p>
-                    <p class="text-lg font-black {% if profile.fee_balance > 0 %}text-rose-600{% else %}text-emerald-600{% endif %} tracking-tighter">
+                    <p class="text-lg font-black {% if profile.fee_balance > 0 %}text-rose-600{% elif profile.fee_balance < 0 %}text-emerald-600{% else %}text-slate-700{% endif %} tracking-tighter">
                         KES {{ profile.fee_balance|abs_val|floatformat:0 }}
-                        <span class="text-[10px] uppercase font-bold ml-1">{% if profile.fee_balance > 0 %}Due{% else %}Credit{% endif %}</span>
+                        <span class="text-[10px] uppercase font-bold ml-1">{% if profile.fee_balance > 0 %}Due{% elif profile.fee_balance < 0 %}Overpayment{% else %}Cleared{% endif %}</span>
                     </p>
                 </div>
                 {% if can_make_payments %}
-                <button onclick="openPaymentModal('{{ student.id|escapejs }}', '{{ student.get_full_name|escapejs }}', '{{ profile.fee_balance|default:0|escapejs }}')" 
+                <a href="{% url 'core:manage-fee-payments' %}?q={{ student.adm_no|urlencode }}"
                     class="h-14 px-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-200 transition-all flex items-center gap-3 group">
-                    <i class="fas fa-plus-circle group-hover:rotate-90 transition-transform"></i> Add Payment
-                </button>
+                    <i class="fas fa-receipt group-hover:scale-110 transition-transform"></i> Record Payment
+                </a>
                 {% endif %}
             </div>
         </div>
@@ -698,10 +773,12 @@
                 </div>
                 <h4 class="text-lg font-black text-slate-400 tracking-tight">Empty Statement</h4>
                 <p class="text-xs font-bold text-slate-300 uppercase tracking-widest mt-2">No transaction history found for this period</p>
-                <button onclick="openPaymentModal('{{ student.id|escapejs }}', '{{ student.get_full_name|escapejs }}', '{{ profile.fee_balance|default:0|escapejs }}')" 
-                    class="mt-8 px-6 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm">
-                    Incept Account with Payment
-                </button>
+                {% if can_make_payments %}
+                <a href="{% url 'core:manage-fee-payments' %}?q={{ student.adm_no|urlencode }}"
+                    class="inline-flex mt-8 px-6 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm">
+                    Record Payment
+                </a>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -720,9 +797,12 @@
             </div>
             <div class="flex items-center gap-4">
                 <div class="px-5 py-3 bg-amber-50 rounded-xl border border-amber-100/50 text-right">
-                    <p class="text-[9px] font-black text-amber-400 uppercase tracking-widest leading-none mb-1">Total Outstanding</p>
-                    <p class="text-lg font-black {% if aux_balance > 0 %}text-amber-700{% else %}text-emerald-600{% endif %} tracking-tighter">
-                        KES {{ aux_balance|floatformat:0 }}
+                    <p class="text-[9px] font-black text-amber-400 uppercase tracking-widest leading-none mb-1">
+                        {% if aux_balance < 0 %}Overpayment{% elif aux_balance > 0 %}Total Outstanding{% else %}Balance{% endif %}
+                    </p>
+                    <p class="text-lg font-black {% if aux_balance > 0 %}text-amber-700{% elif aux_balance < 0 %}text-emerald-600{% else %}text-slate-700{% endif %} tracking-tighter">
+                        KES {{ aux_balance|abs_val|floatformat:0 }}
+                        {% if aux_balance < 0 %}<span class="text-[10px] uppercase font-bold ml-1">Overpayment</span>{% elif aux_balance > 0 %}<span class="text-[10px] uppercase font-bold ml-1">Due</span>{% else %}<span class="text-[10px] uppercase font-bold ml-1">Cleared</span>{% endif %}
                     </p>
                 </div>
                 {% if aux_balance > 0 and can_make_payments %}
@@ -1065,71 +1145,12 @@
     </div>
 </div>
 
-<!-- Payment Modal -->
-<div id="paymentModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm overflow-y-auto w-full h-full flex items-center justify-center p-4">
-    <div class="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 animate-fade-in-up border border-slate-100">
-        <button onclick="closePaymentModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors">
-            <i class="fas fa-times"></i>
-        </button>
-        
-        <div class="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 text-2xl mb-6 ring-4 ring-white shadow-sm">
-            <i class="fas fa-credit-card"></i>
-        </div>
-        
-        <h3 class="text-2xl font-black text-slate-800 mb-2 tracking-tight">Make Payment</h3>
-        <p class="text-[13px] text-slate-500 mb-6 font-medium">Process M-Pesa payment for <span id="paymentStudentName" class="font-bold text-slate-700"></span>.</p>
-        
-        <form method="post" action="{% url 'accounts:mpesa-stk-push' %}" id="paymentForm">
-            {% csrf_token %}
-            <input type="hidden" name="student_id" id="paymentStudentId">
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Phone Number</label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <i class="fas fa-phone text-slate-400 text-sm"></i>
-                        </div>
-                        <input type="tel" name="phone_number" id="paymentPhone" required 
-                               placeholder="254712345678" 
-                               pattern="254[0-9]{9}" 
-                               class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all appearance-none">
-                    </div>
-                    <p class="text-[10px] text-slate-400 mt-1">Format: 254712345678</p>
-                </div>
-                
-                <div>
-                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Amount (KES)</label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <i class="fas fa-shilling-sign text-slate-400 text-sm"></i>
-                        </div>
-                        <input type="number" name="amount" id="paymentAmount" required 
-                               min="1" 
-                               step="0.01"
-                               class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all appearance-none">
-                    </div>
-                    <p class="text-[10px] text-slate-400 mt-1">Outstanding balance: KES <span id="outstandingBalance">0</span></p>
-                </div>
-            </div>
-            
-            <div class="mt-8 flex gap-3">
-                <button type="button" onclick="closePaymentModal()" class="flex-1 py-3 px-4 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors border border-slate-200">
-                    Cancel
-                </button>
-                <button type="submit" class="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-emerald-200 flex items-center justify-center gap-2">
-                    <i class="fas fa-paper-plane"></i> Send STK Push
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
+<!-- Guardian modal helpers + linked users -->
 <script>
     function openGuardianModal(id, name, phone, email) {
         document.getElementById('modalGuardianName').textContent = name;
-        document.getElementById('modalGuardianPhone').textContent = phone;
-        document.getElementById('modalGuardianEmail').textContent = email;
+        document.getElementById('modalGuardianPhone').textContent = phone || '—';
+        document.getElementById('modalGuardianEmail').textContent = email || '—';
         document.getElementById('guardianModal').classList.remove('hidden');
     }
 
@@ -1137,59 +1158,150 @@
         document.getElementById('guardianModal').classList.add('hidden');
     }
 
-    function openPaymentModal(studentId, studentName, outstandingBalance) {
-        document.getElementById('paymentStudentId').value = studentId;
-        document.getElementById('paymentStudentName').textContent = studentName;
-        document.getElementById('outstandingBalance').textContent = outstandingBalance;
-        document.getElementById('paymentAmount').value = outstandingBalance;
-        document.getElementById('paymentModal').classList.remove('hidden');
-    }
+    {% if can_link_users %}
+    (function initLinkedUsers() {
+        const studentId = {{ student.pk }};
+        const searchInput = document.getElementById('link-user-search');
+        const dropdown = document.getElementById('link-user-dropdown');
+        const list = document.getElementById('linked-users-list');
+        const countEl = document.getElementById('linked-users-count');
+        const csrf = '{{ csrf_token }}';
+        let searchTimer = null;
 
-    function closePaymentModal() {
-        document.getElementById('paymentModal').classList.add('hidden');
-    }
+        function updateCount() {
+            const n = list.querySelectorAll('.linked-user-card').length;
+            if (countEl) countEl.textContent = n + ' linked';
+            const empty = document.getElementById('linked-users-empty');
+            if (empty) empty.classList.toggle('hidden', n > 0);
+        }
 
-    // Handle form submission with AJAX
-    document.getElementById('paymentForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(this);
-        const submitButton = this.querySelector('button[type="submit"]');
-        const originalText = submitButton.innerHTML;
-        
-        // Show loading state
-        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        submitButton.disabled = true;
-        
-        fetch(this.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>"']/g, m => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[m]);
+        }
+
+        function addCard(user) {
+            const empty = document.getElementById('linked-users-empty');
+            if (empty) empty.remove();
+
+            const card = document.createElement('div');
+            card.className = 'linked-user-card flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-sm transition-all';
+            card.dataset.userId = user.id;
+            const initial = (user.name || '?').trim().charAt(0).toUpperCase();
+            card.innerHTML = `
+                <div class="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 border border-violet-100 flex items-center justify-center text-xs font-black shrink-0">${escapeHtml(initial)}</div>
+                <div class="min-w-0 flex-1">
+                    <button type="button" class="text-sm font-bold text-slate-800 hover:text-indigo-600 truncate block text-left w-full linked-user-name">
+                        ${escapeHtml(user.name)}
+                    </button>
+                    <p class="text-[10px] font-semibold text-slate-400 truncate">
+                        ${escapeHtml(user.role)}${user.phone ? ' · ' + escapeHtml(user.phone) : ''}
+                    </p>
+                </div>
+                <button type="button" class="w-8 h-8 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors flex items-center justify-center shrink-0 unlink-btn" title="Unlink user">
+                    <i class="fas fa-unlink text-xs"></i>
+                </button>`;
+            card.querySelector('.linked-user-name').addEventListener('click', () => {
+                openGuardianModal(user.id, user.name, user.phone || '', user.email || '');
+            });
+            card.querySelector('.unlink-btn').addEventListener('click', () => unlinkUserFromStudent(user.id));
+            list.appendChild(card);
+            updateCount();
+        }
+
+        window.unlinkUserFromStudent = async function(userId) {
+            if (!confirm('Unlink this user from the student?')) return;
+            try {
+                const res = await fetch(`/student/${studentId}/unlink-user/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrf,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({ user_id: userId }),
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'Failed to unlink');
+                const card = list.querySelector(`.linked-user-card[data-user-id="${userId}"]`);
+                if (card) card.remove();
+                if (!list.querySelector('.linked-user-card') && !document.getElementById('linked-users-empty')) {
+                    list.insertAdjacentHTML('beforeend', `
+                        <div id="linked-users-empty" class="col-span-full py-8 text-center text-slate-400">
+                            <i class="fas fa-user-slash text-2xl opacity-30 mb-2 block"></i>
+                            <p class="text-sm font-bold text-slate-600">No users linked yet</p>
+                            <p class="text-xs mt-1">Search below to attach a guardian or staff account.</p>
+                        </div>`);
+                }
+                updateCount();
+            } catch (err) {
+                alert(err.message || 'Could not unlink user');
             }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Success - show success message and redirect
-                closePaymentModal();
-                alert('STK Push sent successfully! Please check your phone for the payment prompt.');
-                // Reload page to show updated status
-                window.location.reload();
-            } else {
-                // Error - show error message
-                alert('Payment failed: ' + (data.error || 'Unknown error occurred'));
-                submitButton.innerHTML = originalText;
-                submitButton.disabled = false;
+        };
+
+        async function linkUser(userId) {
+            dropdown.classList.add('hidden');
+            searchInput.value = '';
+            try {
+                const res = await fetch(`/student/${studentId}/link-user/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrf,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({ user_id: userId }),
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'Failed to link');
+                if (list.querySelector(`.linked-user-card[data-user-id="${data.user.id}"]`)) return;
+                addCard(data.user);
+            } catch (err) {
+                alert(err.message || 'Could not link user');
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while processing your payment. Please try again.');
-            submitButton.innerHTML = originalText;
-            submitButton.disabled = false;
+        }
+
+        async function runSearch(q) {
+            if (q.length < 2) {
+                dropdown.classList.add('hidden');
+                dropdown.innerHTML = '';
+                return;
+            }
+            try {
+                const res = await fetch(`/api/user-search/?q=${encodeURIComponent(q)}&exclude_student=${studentId}`);
+                const data = await res.json();
+                if (!data.results || !data.results.length) {
+                    dropdown.innerHTML = `<div class="px-4 py-3 text-xs font-bold text-slate-400 text-center">No matching users</div>`;
+                    dropdown.classList.remove('hidden');
+                    return;
+                }
+                dropdown.innerHTML = data.results.map(u => `
+                    <button type="button" class="w-full text-left px-4 py-3 hover:bg-violet-50 border-b border-slate-50 last:border-0 transition-colors link-user-option"
+                            data-id="${u.id}">
+                        <p class="text-sm font-bold text-slate-800">${escapeHtml(u.name)}</p>
+                        <p class="text-[10px] font-semibold text-slate-400">${escapeHtml(u.role)}${u.phone ? ' · ' + escapeHtml(u.phone) : ''}</p>
+                    </button>`).join('');
+                dropdown.querySelectorAll('.link-user-option').forEach(btn => {
+                    btn.addEventListener('click', () => linkUser(btn.dataset.id));
+                });
+                dropdown.classList.remove('hidden');
+            } catch (e) {
+                dropdown.classList.add('hidden');
+            }
+        }
+
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => runSearch(searchInput.value.trim()), 250);
         });
-    });
+        document.addEventListener('click', (e) => {
+            if (!dropdown.contains(e.target) && e.target !== searchInput) {
+                dropdown.classList.add('hidden');
+            }
+        });
+    })();
+    {% endif %}
 </script>
 
 <!-- Auxiliary Payment Modal -->
