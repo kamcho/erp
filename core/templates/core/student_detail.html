@@ -439,8 +439,8 @@
     </div>
 
     <!-- Linked Users -->
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-8">
-        <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/30">
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-visible mb-8 relative z-20">
+        <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/30 rounded-t-xl">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-lg bg-violet-600 text-white flex items-center justify-center shadow-md">
                     <i class="fas fa-user-friends text-xs"></i>
@@ -457,7 +457,7 @@
             {% endif %}
         </div>
 
-        <div class="p-6">
+        <div class="p-6 overflow-visible">
             <div id="linked-users-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 mb-5">
                 {% for g in guardians %}
                 <div class="linked-user-card flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-sm transition-all" data-user-id="{{ g.id }}">
@@ -475,7 +475,7 @@
                         </p>
                     </div>
                     {% if can_link_users %}
-                    <button type="button" onclick="unlinkUserFromStudent({{ g.id }})"
+                    <button type="button" onclick="openUnlinkConfirmModal({{ g.id }}, '{{ g.get_full_name|default:g.email|escapejs }}')"
                             class="w-8 h-8 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors flex items-center justify-center shrink-0"
                             title="Unlink user">
                         <i class="fas fa-unlink text-xs"></i>
@@ -492,14 +492,14 @@
             </div>
 
             {% if can_link_users %}
-            <div class="pt-4 border-t border-slate-100">
+            <div class="pt-4 border-t border-slate-100 relative z-30">
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Add linked user</label>
                 <div class="relative max-w-xl">
-                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-xs pointer-events-none z-10"></i>
                     <input type="text" id="link-user-search" placeholder="Search by name, phone or email…"
                            autocomplete="off"
-                           class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all">
-                    <div id="link-user-dropdown" class="absolute z-40 left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden hidden max-h-64 overflow-y-auto"></div>
+                           class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all relative z-10">
+                    <div id="link-user-dropdown" class="absolute z-[80] left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl hidden max-h-64 overflow-y-auto"></div>
                 </div>
                 <p class="text-[10px] text-slate-400 mt-2 font-medium">Linking grants portal visibility for this student. Existing accounts only.</p>
             </div>
@@ -1205,13 +1205,34 @@
             card.querySelector('.linked-user-name').addEventListener('click', () => {
                 openGuardianModal(user.id, user.name, user.phone || '', user.email || '');
             });
-            card.querySelector('.unlink-btn').addEventListener('click', () => unlinkUserFromStudent(user.id));
+            card.querySelector('.unlink-btn').addEventListener('click', () => openUnlinkConfirmModal(user.id, user.name || user.email || 'this user'));
             list.appendChild(card);
             updateCount();
         }
 
-        window.unlinkUserFromStudent = async function(userId) {
-            if (!confirm('Unlink this user from the student?')) return;
+        let pendingUnlinkUserId = null;
+
+        window.openUnlinkConfirmModal = function(userId, userName) {
+            pendingUnlinkUserId = userId;
+            const nameEl = document.getElementById('unlinkConfirmName');
+            if (nameEl) nameEl.textContent = userName || 'this user';
+            document.getElementById('unlinkConfirmModal').classList.remove('hidden');
+        };
+
+        window.closeUnlinkConfirmModal = function() {
+            pendingUnlinkUserId = null;
+            document.getElementById('unlinkConfirmModal').classList.add('hidden');
+        };
+
+        window.confirmUnlinkUser = async function() {
+            if (!pendingUnlinkUserId) return;
+            const userId = pendingUnlinkUserId;
+            const confirmBtn = document.getElementById('unlinkConfirmBtn');
+            const original = confirmBtn ? confirmBtn.innerHTML : '';
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Unlinking…';
+            }
             try {
                 const res = await fetch(`/student/${studentId}/unlink-user/`, {
                     method: 'POST',
@@ -1235,9 +1256,20 @@
                         </div>`);
                 }
                 updateCount();
+                closeUnlinkConfirmModal();
             } catch (err) {
                 alert(err.message || 'Could not unlink user');
+            } finally {
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = original;
+                }
             }
+        };
+
+        // Back-compat for any leftover callers
+        window.unlinkUserFromStudent = function(userId, userName) {
+            openUnlinkConfirmModal(userId, userName || 'this user');
         };
 
         async function linkUser(userId) {
@@ -1303,6 +1335,32 @@
     })();
     {% endif %}
 </script>
+
+<!-- Unlink confirmation modal -->
+{% if can_link_users %}
+<div id="unlinkConfirmModal" class="fixed inset-0 z-[80] hidden bg-slate-900/50 backdrop-blur-sm overflow-y-auto w-full h-full flex items-center justify-center p-4">
+    <div class="relative w-full max-w-sm bg-white rounded-[2rem] shadow-2xl p-8 border border-slate-100">
+        <button type="button" onclick="closeUnlinkConfirmModal()" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors">
+            <i class="fas fa-times text-sm"></i>
+        </button>
+        <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center text-xl mb-5 ring-4 ring-white shadow-sm">
+            <i class="fas fa-unlink"></i>
+        </div>
+        <h3 class="text-xl font-black text-slate-800 tracking-tight mb-2">Unlink user?</h3>
+        <p class="text-sm text-slate-500 font-medium mb-6 leading-relaxed">
+            Remove <span id="unlinkConfirmName" class="font-bold text-slate-700">this user</span> from this learner’s linked accounts? They will lose portal access to this student.
+        </p>
+        <div class="flex gap-3">
+            <button type="button" onclick="closeUnlinkConfirmModal()" class="flex-1 py-3.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-2xl font-black text-[11px] uppercase tracking-wider border border-slate-200 transition-colors">
+                Cancel
+            </button>
+            <button type="button" id="unlinkConfirmBtn" onclick="confirmUnlinkUser()" class="flex-1 py-3.5 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-wider shadow-lg shadow-rose-200 transition-all flex items-center justify-center gap-2">
+                <i class="fas fa-unlink"></i> Unlink
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Auxiliary Payment Modal -->
 <div id="auxPaymentModal" class="fixed inset-0 z-[60] hidden bg-slate-900/50 backdrop-blur-sm overflow-y-auto w-full h-full flex items-center justify-center p-4">

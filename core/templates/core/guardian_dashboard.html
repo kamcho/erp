@@ -248,7 +248,10 @@
     <!-- Fee Structure Quick Reference -->
     <div class="bg-white rounded-[14px] border border-slate-200 shadow-sm overflow-hidden">
         <div class="p-6 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="text-[15px] font-bold text-slate-800">Current Fee Structures</h3>
+            <div>
+                <h3 class="text-[15px] font-bold text-slate-800">Current Fee Structures</h3>
+                <p class="text-[11px] font-medium text-slate-400 mt-0.5">Shown for your linked learners only</p>
+            </div>
             <i class="fas fa-info-circle text-slate-300"></i>
         </div>
         <div class="overflow-x-auto">
@@ -256,7 +259,8 @@
                 <thead class="bg-slate-50/50">
                     <tr>
                         <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Grade(s)</th>
-                        <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Term/Year</th>
+                        <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">School / Type</th>
+                        <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Term</th>
                         <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Amount</th>
                     </tr>
                 </thead>
@@ -266,15 +270,20 @@
                         <td class="px-6 py-4">
                             <div class="flex flex-wrap gap-1">
                                 {% for g in fee.grade.all %}
-                                <span class="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase">{{ g.name }}</span>
+                                    {% if g.id in applicable_grade_ids %}
+                                    <span class="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase">{{ g.name }}</span>
+                                    {% endif %}
                                 {% endfor %}
                             </div>
                         </td>
                         <td class="px-6 py-4">
                             <div class="flex flex-col">
-                                <span class="text-[12px]">{{ fee.term.name }}</span>
-                                <span class="text-[10px] text-slate-400 font-medium">Academic Year {{ fee.academic_year.start_date.year }}</span>
+                                <span class="text-[12px]">{{ fee.school.name|default:"All Schools" }}</span>
+                                <span class="text-[10px] text-slate-400 font-medium uppercase">{{ fee.get_student_type_display }}</span>
                             </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-[12px]">{{ fee.term.name }}</span>
                         </td>
                         <td class="px-6 py-4 text-right text-[12px] font-black text-emerald-500">
                             KES {{ fee.amount }}
@@ -282,14 +291,14 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="3" class="px-6 py-12 text-center text-slate-400 text-xs italic tracking-widest uppercase">No fee data available</td>
+                        <td colspan="4" class="px-6 py-12 text-center text-slate-400 text-xs italic tracking-widest uppercase">No fee structures for your linked learners</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         <div class="p-4 bg-slate-50 border-t border-slate-100">
-            <p class="text-[10px] text-slate-400 font-bold text-center italic">Rates may vary based on student boarding status (Day/Boarder).</p>
+            <p class="text-[10px] text-slate-400 font-bold text-center italic">Amounts match each learner’s school, grade, and day/boarding status.</p>
         </div>
     </div>
 </div>

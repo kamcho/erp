@@ -198,13 +198,43 @@ def guardian_dashboard(request):
     
     # Financial log (Invoices and Payments)
     from accounts.models import Payment, Invoice, FeeStructure
+    from functools import reduce
+    from operator import or_
     student_payments = Payment.objects.filter(student__in=students)
     student_invoices = Invoice.objects.filter(student__in=students)
     
-    # Fee structures related to the guardian's students' grades
-    fee_structures = FeeStructure.objects.filter(
-        grade__id__in=grade_ids
-    ).select_related('term').prefetch_related('grade').distinct().order_by('-created_at')[:10]
+    # Fee structures applicable only to linked learners (school + grade + day/boarder)
+    learner_fee_filters = []
+    applicable_grade_ids = set()
+    for student in students:
+        profile = getattr(student, 'studentprofile', None)
+        if not profile or not profile.class_id_id or not getattr(profile.class_id, 'grade_id', None):
+            continue
+        grade_id = profile.class_id.grade_id
+        school_id = profile.school_id
+        student_type = student.get_fee_student_type()
+        applicable_grade_ids.add(grade_id)
+        learner_fee_filters.append(
+            Q(grade__id=grade_id, student_type=student_type)
+            & (Q(school_id=school_id) | Q(school__isnull=True))
+        )
+
+    if learner_fee_filters:
+        fee_structures = FeeStructure.objects.filter(
+            reduce(or_, learner_fee_filters)
+        )
+        active_term = Term.objects.filter(is_active=True).first()
+        if active_term:
+            fee_structures = fee_structures.filter(term=active_term)
+        fee_structures = (
+            fee_structures
+            .select_related('term', 'school')
+            .prefetch_related('grade')
+            .distinct()
+            .order_by('school__name', 'student_type', '-created_at')
+        )
+    else:
+        fee_structures = FeeStructure.objects.none()
     
     financial_log = []
     for p in student_payments:
@@ -258,6 +288,7 @@ def guardian_dashboard(request):
         'payment_notifications': payment_notifications,
         'financial_log': financial_log,
         'fee_structures': fee_structures,
+        'applicable_grade_ids': applicable_grade_ids,
         'total_balance': total_balance,
         'present_count': present_count,
         'late_count': late_count,
