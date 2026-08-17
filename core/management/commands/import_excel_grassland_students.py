@@ -191,8 +191,41 @@ def parse_sheet(ws, sheet_name: str):
             continue
 
         balance = parse_balance(ws.cell(row, balance_col).value)
-        rows.append({"adm_no": adm_no, "name": name, "balance": balance, "sheet": sheet_name})
+        rows.append({
+            "source_adm": adm_no,
+            "name": name,
+            "balance": balance,
+            "sheet": sheet_name,
+        })
     return rows
+
+
+def assign_grassland_adm_nos(rows, existing_adms=None):
+    """Append EG to every adm no; duplicate spreadsheet rows get EG2, EG3, etc."""
+    existing_adms = existing_adms or set(
+        Student.objects.filter(adm_no__endswith="EG").values_list("adm_no", flat=True)
+    )
+    assigned = set()
+    seen = {}
+    result = []
+
+    for row in rows:
+        src = row["source_adm"]
+        seen[src] = seen.get(src, 0) + 1
+        suffix = "" if seen[src] == 1 else str(seen[src])
+        candidate = f"{src}EG{suffix}"
+
+        while candidate in assigned or candidate in existing_adms:
+            seen[src] += 1
+            suffix = "" if seen[src] == 1 else str(seen[src])
+            candidate = f"{src}EG{suffix}"
+
+        row = {**row, "adm_no": candidate}
+        assigned.add(candidate)
+        result.append(row)
+
+    extra_rows = sum(count - 1 for count in seen.values() if count > 1)
+    return result, extra_rows
 
 
 def resolve_class(school, sheet_name: str):
@@ -280,14 +313,29 @@ class Command(BaseCommand):
 
         self.stdout.write(f"Parsed {len(parsed_rows)} student rows")
 
+        parsed_rows, dup_sources = assign_grassland_adm_nos(parsed_rows)
+        if dup_sources:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"{dup_sources} spreadsheet admission number(s) had duplicates; "
+                    "extra rows assigned EG2, EG3, etc."
+                )
+            )
+        self.stdout.write(f"Assigned {len(parsed_rows)} unique admission numbers (all end with EG)")
+
         if options["dry_run"]:
+            for row in parsed_rows:
+                if row["adm_no"] != f"{row['source_adm']}EG":
+                    self.stdout.write(
+                        f"  dup: {row['source_adm']} -> {row['adm_no']} ({row['name']}, {row['sheet']})"
+                    )
             return
 
         if options["clear"]:
             cleared = clear_grassland_students(school)
             self.stdout.write(self.style.WARNING(f"Cleared {cleared} existing Grassland student profiles"))
 
-        created = updated = 0
+        created = 0
         with transaction.atomic():
             for row in parsed_rows:
                 klass = row["class_obj"]
@@ -295,45 +343,34 @@ class Command(BaseCommand):
                 gender = guess_gender(first)
                 dob = DOB_BY_GRADE.get(klass.grade.name, date(2015, 6, 1))
 
-                student = Student.objects.filter(adm_no=row["adm_no"]).first()
-                is_new = student is None
-                if is_new:
-                    student = Student(adm_no=row["adm_no"])
+                if Student.objects.filter(adm_no=row["adm_no"]).exists():
+                    raise RuntimeError(f"Admission number already exists: {row['adm_no']}")
 
-                student.first_name = first
-                student.middle_name = middle
-                student.last_name = last
-                student.date_of_birth = dob
-                student.joined_date = JOINED
-                student.gender = gender
-                student.fee_category = "day"
-                student.is_boarder = False
-                student.save()
-
-                profile, _ = StudentProfile.objects.get_or_create(
-                    student=student,
-                    defaults={
-                        "school": school,
-                        "class_id": klass,
-                        "fee_balance": row["balance"],
-                        "status": "Active",
-                        "discipline": 100,
-                    },
+                student = Student.objects.create(
+                    adm_no=row["adm_no"],
+                    first_name=first,
+                    middle_name=middle,
+                    last_name=last,
+                    date_of_birth=dob,
+                    joined_date=JOINED,
+                    gender=gender,
+                    fee_category="day",
+                    is_boarder=False,
                 )
-                profile.school = school
-                profile.class_id = klass
-                profile.fee_balance = row["balance"]
-                profile.status = "Active"
-                profile.save()
 
-                if is_new:
-                    created += 1
-                else:
-                    updated += 1
+                StudentProfile.objects.create(
+                    student=student,
+                    school=school,
+                    class_id=klass,
+                    fee_balance=row["balance"],
+                    status="Active",
+                    discipline=100,
+                )
+                created += 1
 
         total = StudentProfile.objects.filter(school=school, status="Active").count()
         self.stdout.write(
             self.style.SUCCESS(
-                f"Done. Created {created}, updated {updated}. Active Grassland students: {total}."
+                f"Done. Created {created} students. Active Grassland students: {total}."
             )
         )
