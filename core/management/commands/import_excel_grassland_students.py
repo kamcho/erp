@@ -34,14 +34,38 @@ SHEET_CLASS_MAP = {
     "gr2": ("Grade 2", "Grade 2"),
     "3w": ("Grade 3", "West"),
     "3e": ("Grade 3", "East"),
-    "4w": ("Grade 4", "Grade 4"),
-    "4e": ("Grade 4", "Grade 4"),
+    "4w": ("Grade 4", "West"),
+    "4e": ("Grade 4", "East"),
     "5": ("Grade 5", "Grade 5"),
     "6": ("Grade 6", "Grade 6"),
     "7a": ("Grade 7", "Amazon"),
     "7e": ("Grade 7", "Everest"),
     "8": ("Grade 8", "Grade 8"),
     "9": ("Grade 9", "Everest"),
+}
+
+CLASS_LABEL_MAP = {
+    "pg": ("Play Group", "Play Group"),
+    "play group": ("Play Group", "Play Group"),
+    "pp1": ("PP1", "PP1"),
+    "pp2": ("PP2", "PP2"),
+    "grade 1": ("Grade 1", "East"),
+    "grade 1 east": ("Grade 1", "East"),
+    "grade 1 west": ("Grade 1", "West"),
+    "grade 2": ("Grade 2", "Grade 2"),
+    "grade 3 west": ("Grade 3", "West"),
+    "grade 3 east": ("Grade 3", "East"),
+    "grade 4": ("Grade 4", "Grade 4"),
+    "grade 4 west": ("Grade 4", "West"),
+    "grade 4 east": ("Grade 4", "East"),
+    "grade 5": ("Grade 5", "Grade 5"),
+    "grade 6": ("Grade 6", "Grade 6"),
+    "grade 7 amazon": ("Grade 7", "Amazon"),
+    "grade 7 everest": ("Grade 7", "Everest"),
+    "grade 8": ("Grade 8", "Grade 8"),
+    "grade 9": ("Grade 9", "Everest"),
+    "grade 9 everest": ("Grade 9", "Everest"),
+    "grade 9 amazon": ("Grade 9", "Amazon"),
 }
 
 DOB_BY_GRADE = {
@@ -169,6 +193,68 @@ def find_balance_col(ws, header_row: int | None, start_row: int) -> int:
     return ws.max_column
 
 
+def is_roster_sheet(ws) -> bool:
+    headers = [str(ws.cell(1, c).value or "").strip().upper() for c in range(1, min(ws.max_column, 8) + 1)]
+    return any(h in {"ADM NO", "ADM", "ADMNO"} for h in headers) and any("CLASS" in h for h in headers)
+
+
+def parse_roster_sheet(ws, sheet_name: str):
+    headers = {str(ws.cell(1, c).value or "").strip().upper(): c for c in range(1, ws.max_column + 1)}
+    adm_col = headers.get("ADM NO") or headers.get("ADM") or headers.get("ADMNO") or 1
+    name_col = headers.get("NAME") or headers.get("NAMES") or 2
+    class_col = next((c for h, c in headers.items() if h == "CLASS"), 3)
+    bal_col = headers.get("BALANCE") or headers.get("BAL") or 4
+    rows = []
+
+    for row in range(2, ws.max_row + 1):
+        name_raw = ws.cell(row, name_col).value
+        if not name_raw:
+            continue
+        name = re.sub(r"\s+", " ", str(name_raw)).strip()
+        if is_skippable_name(name):
+            continue
+
+        adm_raw = ws.cell(row, adm_col).value
+        source_adm = None
+        if adm_raw is not None and str(adm_raw).strip() and str(adm_raw).strip().upper() != "TOTAL":
+            try:
+                source_adm = str(int(float(adm_raw)))
+            except (TypeError, ValueError):
+                source_adm = None
+
+        class_label = re.sub(r"\s+", " ", str(ws.cell(row, class_col).value or "")).strip()
+        rows.append({
+            "source_adm": source_adm,
+            "name": name,
+            "balance": parse_balance(ws.cell(row, bal_col).value),
+            "sheet": sheet_name,
+            "class_label": class_label,
+        })
+    return rows
+
+
+def fill_missing_source_adms(rows):
+    """Give blank ADM rows unique generated numbers so they still import."""
+    used = set()
+    for row in rows:
+        if row.get("source_adm"):
+            used.add(row["source_adm"])
+
+    next_num = 9001
+    generated = 0
+    for row in rows:
+        if row.get("source_adm"):
+            continue
+        while str(next_num) in used:
+            next_num += 1
+        row["source_adm"] = str(next_num)
+        row["generated_adm"] = True
+        used.add(str(next_num))
+        generated += 1
+        next_num += 1
+    return generated
+
+
 def parse_sheet(ws, sheet_name: str):
     header_row, name_col = find_name_col(ws)
     start_row = header_row + 1 if header_row else 2
@@ -232,11 +318,20 @@ def resolve_class(school, sheet_name: str):
     mapping = SHEET_CLASS_MAP.get(sheet_name.lower())
     if not mapping:
         return None
-    grade_name, stream_name = mapping
-    grade = Grade.objects.filter(name=grade_name).first()
-    if not grade:
+    return ensure_class(school, mapping[0], mapping[1])
+
+
+def resolve_class_label(school, class_label: str):
+    mapping = CLASS_LABEL_MAP.get(re.sub(r"\s+", " ", class_label or "").strip().lower())
+    if not mapping:
         return None
-    return Class.objects.filter(school=school, grade=grade, name=stream_name).first()
+    return ensure_class(school, mapping[0], mapping[1])
+
+
+def ensure_class(school, grade_name: str, stream_name: str):
+    grade, _ = Grade.objects.get_or_create(name=grade_name)
+    klass, _ = Class.objects.get_or_create(school=school, grade=grade, name=stream_name)
+    return klass
 
 
 def clear_grassland_students(school):
@@ -289,29 +384,47 @@ class Command(BaseCommand):
         parsed_rows = []
         missing_classes = []
 
-        for sheet_name in workbook.sheetnames:
-            key = sheet_name.strip().lower()
-            if key not in SHEET_CLASS_MAP:
-                self.stdout.write(self.style.WARNING(f"Skipping unknown sheet: {sheet_name}"))
-                continue
+        roster_sheets = [name for name in workbook.sheetnames if is_roster_sheet(workbook[name])]
+        if roster_sheets:
+            for sheet_name in roster_sheets:
+                rows = parse_roster_sheet(workbook[sheet_name], sheet_name)
+                for row in rows:
+                    klass = resolve_class_label(school, row["class_label"])
+                    if not klass:
+                        missing_classes.append(f"{row['name']} ({row['class_label'] or 'blank class'})")
+                        continue
+                    row["class_obj"] = klass
+                    row["grade_name"] = klass.grade.name
+                    parsed_rows.append(row)
+                self.stdout.write(f"{sheet_name}: {len(rows)} roster rows")
+        else:
+            for sheet_name in workbook.sheetnames:
+                key = sheet_name.strip().lower()
+                if key not in SHEET_CLASS_MAP:
+                    self.stdout.write(self.style.WARNING(f"Skipping unknown sheet: {sheet_name}"))
+                    continue
 
-            klass = resolve_class(school, key)
-            if not klass:
-                missing_classes.append(sheet_name)
-                continue
+                klass = resolve_class(school, key)
+                if not klass:
+                    missing_classes.append(sheet_name)
+                    continue
 
-            rows = parse_sheet(workbook[sheet_name], sheet_name)
-            for row in rows:
-                row["class_obj"] = klass
-                row["grade_name"] = klass.grade.name
-            parsed_rows.extend(rows)
-            self.stdout.write(f"{sheet_name}: {len(rows)} -> {klass.grade.name} / {klass.name}")
+                rows = parse_sheet(workbook[sheet_name], sheet_name)
+                for row in rows:
+                    row["class_obj"] = klass
+                    row["grade_name"] = klass.grade.name
+                parsed_rows.extend(rows)
+                self.stdout.write(f"{sheet_name}: {len(rows)} -> {klass.grade.name} / {klass.name}")
 
         if missing_classes:
-            self.stderr.write(self.style.ERROR(f"Missing classes for sheets: {', '.join(missing_classes)}"))
+            sample = ", ".join(missing_classes[:8])
+            self.stderr.write(self.style.ERROR(f"Missing classes ({len(missing_classes)}): {sample}"))
             return
 
+        generated = fill_missing_source_adms(parsed_rows)
         self.stdout.write(f"Parsed {len(parsed_rows)} student rows")
+        if generated:
+            self.stdout.write(self.style.WARNING(f"Generated {generated} admission number(s) for blank ADM rows (9001EG+)"))
 
         if options["dry_run"]:
             preview_rows, extra_rows = assign_grassland_adm_nos(parsed_rows, existing_adms=set())
@@ -323,9 +436,13 @@ class Command(BaseCommand):
                     )
                 )
             for row in preview_rows:
-                if row["adm_no"] != f"{row['source_adm']}EG":
+                if row.get("generated_adm"):
                     self.stdout.write(
-                        f"  dup: {row['source_adm']} -> {row['adm_no']} ({row['name']}, {row['sheet']})"
+                        f"  generated: {row['adm_no']} ({row['name']}, {row.get('class_label') or row.get('sheet')})"
+                    )
+                elif row["adm_no"] != f"{row['source_adm']}EG":
+                    self.stdout.write(
+                        f"  dup: {row['source_adm']} -> {row['adm_no']} ({row['name']}, {row.get('class_label') or row.get('sheet')})"
                     )
             return
 
