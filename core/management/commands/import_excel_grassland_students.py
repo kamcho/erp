@@ -313,18 +313,16 @@ class Command(BaseCommand):
 
         self.stdout.write(f"Parsed {len(parsed_rows)} student rows")
 
-        parsed_rows, dup_sources = assign_grassland_adm_nos(parsed_rows)
-        if dup_sources:
-            self.stdout.write(
-                self.style.WARNING(
-                    f"{dup_sources} spreadsheet admission number(s) had duplicates; "
-                    "extra rows assigned EG2, EG3, etc."
-                )
-            )
-        self.stdout.write(f"Assigned {len(parsed_rows)} unique admission numbers (all end with EG)")
-
         if options["dry_run"]:
-            for row in parsed_rows:
+            preview_rows, extra_rows = assign_grassland_adm_nos(parsed_rows, existing_adms=set())
+            self.stdout.write(f"Would assign {len(preview_rows)} admission numbers (all end with EG)")
+            if extra_rows:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"{extra_rows} duplicate spreadsheet row(s) would get EG2/EG3 suffixes"
+                    )
+                )
+            for row in preview_rows:
                 if row["adm_no"] != f"{row['source_adm']}EG":
                     self.stdout.write(
                         f"  dup: {row['source_adm']} -> {row['adm_no']} ({row['name']}, {row['sheet']})"
@@ -334,6 +332,15 @@ class Command(BaseCommand):
         if options["clear"]:
             cleared = clear_grassland_students(school)
             self.stdout.write(self.style.WARNING(f"Cleared {cleared} existing Grassland student profiles"))
+
+        parsed_rows, extra_rows = assign_grassland_adm_nos(parsed_rows, existing_adms=set())
+        if extra_rows:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"{extra_rows} duplicate spreadsheet row(s) assigned EG2/EG3 suffixes"
+                )
+            )
+        self.stdout.write(f"Assigned {len(parsed_rows)} unique admission numbers (all end with EG)")
 
         created = 0
         with transaction.atomic():
