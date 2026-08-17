@@ -16,7 +16,7 @@ from .forms import (
 )
 from communication.models import PaymentNotification, Notification, SMSLog, AttendanceSMSDispatch
 from users.models import MyUser
-from django.db.models import Q, Sum, Count, Avg, Case, When, F, FloatField, ExpressionWrapper
+from django.db.models import Q, Sum, Count, Avg, Case, When, F, FloatField, IntegerField, ExpressionWrapper
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from datetime import datetime, timedelta, date, time
@@ -33,6 +33,27 @@ from Exam.models import ExamSUbjectScore, Exam, Subject, ExamSubjectConfiguratio
 from decimal import Decimal
 from e_learning.models import Assignment
 from django.core.paginator import Paginator
+
+
+def order_queryset_by_grade(queryset, grade_name_field='grade__name', then=('name',)):
+    """Order by Grade.choices sequence (Play Group → Grade 9), then extra fields."""
+    grade_order = [choice[0] for choice in Grade.choices]
+    grade_rank = Case(
+        *[When(**{grade_name_field: name}, then=pos) for pos, name in enumerate(grade_order)],
+        default=len(grade_order),
+        output_field=IntegerField(),
+    )
+    return queryset.annotate(_grade_rank=grade_rank).order_by('_grade_rank', *then)
+
+
+def grades_in_catalog_order():
+    grade_order = [choice[0] for choice in Grade.choices]
+    grades = list(Grade.objects.all())
+    return sorted(
+        grades,
+        key=lambda grade: grade_order.index(grade.name) if grade.name in grade_order else len(grade_order),
+    )
+
 
 class DashboardView(LoginRequiredMixin, ListView):
     model = Student
@@ -2130,7 +2151,8 @@ class ClassesListView(LoginRequiredMixin, ListView):
                     Q(grade__name__icontains=part)
                 )
         
-        return queryset.annotate(student_count=Count('studentprofile'))
+        queryset = queryset.annotate(student_count=Count('studentprofile'))
+        return order_queryset_by_grade(queryset)
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -2155,7 +2177,7 @@ class ClassesListView(LoginRequiredMixin, ListView):
             context['selected_school'] = ''
         
         # Grades are standard across all schools
-        context['grades'] = Grade.objects.all().order_by('name')
+        context['grades'] = grades_in_catalog_order()
         
         context['selected_grade'] = self.request.GET.get('grade', '')
         
