@@ -55,6 +55,35 @@ def grades_in_catalog_order():
     )
 
 
+def get_admission_fee_context(user=None):
+    """School-specific admission from AdditionalCharges, with global AdmissionFee fallback."""
+    from accounts.models import AdditionalCharges, AdmissionFee
+
+    global_fee = AdmissionFee.objects.order_by('-created_at').first()
+    fallback = int(global_fee.amount) if global_fee else 0
+    by_school = {
+        str(charge.school_id): int(charge.amount)
+        for charge in AdditionalCharges.objects.filter(name__iexact='Admission Fee').only('school_id', 'amount')
+    }
+
+    initial_school_id = None
+    if user and getattr(user, 'school', None) and not getattr(user, 'is_superuser', False):
+        initial_school_id = str(user.school_id)
+
+    if initial_school_id and initial_school_id in by_school:
+        default = by_school[initial_school_id]
+    else:
+        default = fallback
+
+    return {
+        'admission_fees_by_school': by_school,
+        'admission_fee_fallback': fallback,
+        'admission_fee_default': default,
+        'admission_fee_max': default if default > 0 else 50000,
+        'initial_school_id': initial_school_id,
+    }
+
+
 class DashboardView(LoginRequiredMixin, ListView):
     model = Student
     template_name = 'core/dashboard.html'
@@ -926,6 +955,8 @@ class StudentPromotionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                     # 2. Handle Additional Charges
                     add_charges = add_charge_map.get((profile.school_id, target_class.grade_id), [])
                     for ac in add_charges:
+                        if ac.is_enrollment_only:
+                            continue
                         # Guard against duplicate invoicing for additional charges
                         if ac.amount and not Invoice.objects.filter(
                             student=profile.student, 
@@ -1127,6 +1158,8 @@ def create_student(request):
             
             if charges.exists():
                 for ch in charges:
+                    if ch.is_enrollment_only and agreed_admission_fee > 0:
+                        continue
                     Invoice.objects.create(
                         student=student,
                         amount=ch.amount,
@@ -1179,7 +1212,11 @@ def create_student(request):
             
             # Additional Charges
             if charges.exists():
-                total_auto_invoiced += sum(int(Decimal(str(ch.amount)).quantize(Decimal('1'), rounding='ROUND_HALF_UP')) for ch in charges)
+                total_auto_invoiced += sum(
+                    int(Decimal(str(ch.amount)).quantize(Decimal('1'), rounding='ROUND_HALF_UP'))
+                    for ch in charges
+                    if not (ch.is_enrollment_only and agreed_admission_fee > 0)
+                )
 
             # Transport
             total_auto_invoiced += int(transport_fee)
@@ -1247,23 +1284,20 @@ def create_student(request):
     else:
         student_form = StudentForm()
         profile_form = StudentProfileForm()
+        user_school = getattr(request.user, 'school', None)
+        if user_school and not request.user.is_superuser:
+            profile_form.fields['school'].initial = user_school.id
     
     from accounts.models import AdditionalCharges, AdmissionFee
-    default_admission_fee = AdmissionFee.objects.order_by('-created_at').first()
-    try:
-        admission_fee_default = int(default_admission_fee.amount) if default_admission_fee else 0
-    except Exception:
-        admission_fee_default = 0
-    admission_fee_max = admission_fee_default if admission_fee_default > 0 else 50000
+    admission_context = get_admission_fee_context(request.user)
     from transport.models import Vehicle
     context = {
         'student_form': student_form,
         'profile_form': profile_form,
         'additional_charges': AdditionalCharges.objects.select_related('school').prefetch_related('grades').all(),
-        'default_admission_fee': default_admission_fee,
-        'admission_fee_default': admission_fee_default,
-        'admission_fee_max': admission_fee_max,
+        'default_admission_fee': AdmissionFee.objects.order_by('-created_at').first(),
         'vehicles': Vehicle.objects.all(),
+        **admission_context,
     }
     from users.models import MyUser
     context['guardians'] = MyUser.objects.all().order_by('first_name')
@@ -5866,6 +5900,8 @@ def migrate_year(request):
                                         # 2. Handle Additional Charges (Optimized)
                                         add_charges = add_charge_map.get((profile.school_id, next_cl.grade_id), [])
                                         for ac in add_charges:
+                                            if ac.is_enrollment_only:
+                                                continue
                                             if ac.amount and not Invoice.objects.filter(
                                                 student=profile.student, additional_charge=ac, 
                                                 academic_year=target_year, term=target_term

@@ -545,10 +545,12 @@ class MigrateFeesView(LoginRequiredMixin, ListView):
                     grades=profile.class_id.grade
                 )
                 for ac in add_charges:
+                    if ac.is_enrollment_only:
+                        continue
                     if ac.amount and not Invoice.objects.filter(
-                        student=profile.student, 
-                        additional_charge=ac, 
-                        academic_year=active_year, 
+                        student=profile.student,
+                        additional_charge=ac,
+                        academic_year=active_year,
                         term=active_term
                     ).exists():
                         Invoice.objects.create(
@@ -620,10 +622,12 @@ class MigrateFeesView(LoginRequiredMixin, ListView):
                 grades=profile.class_id.grade
             )
             for ac in add_charges:
+                if ac.is_enrollment_only:
+                    continue
                 if ac.amount and not Invoice.objects.filter(
-                    student=student, 
-                    additional_charge=ac, 
-                    academic_year=active_year, 
+                    student=student,
+                    additional_charge=ac,
+                    academic_year=active_year,
                     term=active_term
                 ).exists():
                     Invoice.objects.create(
@@ -765,10 +769,12 @@ class MigrateTermView(LoginRequiredMixin, TemplateView):
                 grades=profile.class_id.grade
             )
             for ac in add_charges:
+                if ac.is_enrollment_only:
+                    continue
                 if ac.amount and not Invoice.objects.filter(
-                    student=profile.student, 
-                    additional_charge=ac, 
-                    academic_year=active_year, 
+                    student=profile.student,
+                    additional_charge=ac,
+                    academic_year=active_year,
                     term=selected_term
                 ).exists():
                     Invoice.objects.create(
@@ -1683,4 +1689,4 @@ class AuxiliaryAnalyticsView(LoginRequiredMixin, UserPassesTestMixin, TemplateVi
         context['date_to'] = date_to
 
         return context
-
+

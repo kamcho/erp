@@ -207,6 +207,7 @@
                     <div class="additional-charge-item" 
                          data-school-id="{{ ch.school_id }}"
                          data-amount="{{ ch.amount }}"
+                         data-enrollment-only="{% if ch.is_enrollment_only %}1{% else %}0{% endif %}"
                          data-grades="{% for g in ch.grades.all %}{{ g.id }}{% if not forloop.last %},{% endif %}{% endfor %}">
                     </div>
                     {% endfor %}
@@ -473,9 +474,25 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ admission_fees_by_school|json_script:"admission-fees-by-school" }}
 <script>
+    const admissionFeesBySchool = JSON.parse(document.getElementById('admission-fees-by-school').textContent);
+    const admissionFeeFallback = {{ admission_fee_fallback }};
     const admissionFeeInput = document.getElementById('id_admission_fee_amount');
     const admissionFeeVal = document.getElementById('admission-fee-val');
+
+    function applySchoolAdmissionFee() {
+        if (!admissionFeeInput) return;
+        const schoolSelectEl = document.getElementById('id_school');
+        const schoolId = schoolSelectEl ? schoolSelectEl.value : '';
+        const amount = (schoolId && admissionFeesBySchool[schoolId] !== undefined)
+            ? admissionFeesBySchool[schoolId]
+            : admissionFeeFallback;
+        admissionFeeInput.value = amount;
+        admissionFeeInput.max = amount > 0 ? amount : 50000;
+        if (admissionFeeVal) admissionFeeVal.textContent = amount;
+    }
+
     if (admissionFeeInput && admissionFeeVal) {
         admissionFeeInput.addEventListener('input', () => {
             admissionFeeVal.textContent = admissionFeeInput.value;
@@ -626,6 +643,9 @@
         const gradeId = selectedOption ? selectedOption.getAttribute('data-grade-id') : null;
 
         document.querySelectorAll('.additional-charge-item').forEach(el => {
+            if (el.getAttribute('data-enrollment-only') === '1') {
+                return;
+            }
             const elSchool = el.getAttribute('data-school-id');
             const elGrades = el.getAttribute('data-grades').split(',');
             
@@ -696,6 +716,7 @@
     if (schoolSelect && classSelect) {
         schoolSelect.addEventListener('change', function() {
             const schoolId = this.value;
+            applySchoolAdmissionFee();
             // Filter additional charges by selected school
             const chargeItems = document.querySelectorAll('.additional-charge-item');
             if (chargeItems && chargeItems.length) {
@@ -836,6 +857,7 @@
     document.getElementById('transport_custom_fee').addEventListener('input', refreshTotalBalance);
 
     // Initial check
+    applySchoolAdmissionFee();
     toggleTransportSection();
     refreshRoutes();
     refreshTotalBalance();

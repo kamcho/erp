@@ -66,6 +66,12 @@ class AdditionalCharges(models.Model):
     
     def __str__(self):
         return f"Additional Charge: {self.name}"
+
+    @property
+    def is_enrollment_only(self):
+        """One-time charges (e.g. admission) must not run during term fee migration."""
+        return self.name.strip().lower() == 'admission fee'
+
     class Meta:
         ordering = ['created_at']
         verbose_name = "Additional Charge"
