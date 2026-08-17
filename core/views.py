@@ -2101,18 +2101,19 @@ class ClassesListView(LoginRequiredMixin, ListView):
                     
         return redirect('core:classes-list')
     
+    def _can_filter_schools(self):
+        user = self.request.user
+        return user.is_superuser or not getattr(user, 'school', None)
+    
     def get_queryset(self):
         queryset = Class.objects.all().select_related('grade', 'school')
         
-        # Filter by school if user is linked to one and is not a superuser
-        if not self.request.user.is_superuser and self.request.user.school:
-            queryset = queryset.filter(school=self.request.user.school)
-        
-        # Filter by school if specified in GET (available for superusers)
-        if self.request.user.is_superuser:
+        if self._can_filter_schools():
             school_id = self.request.GET.get('school')
             if school_id:
                 queryset = queryset.filter(school_id=school_id)
+        elif self.request.user.school:
+            queryset = queryset.filter(school=self.request.user.school)
         
         # Filter by grade if specified
         grade_id = self.request.GET.get('grade')
@@ -2134,19 +2135,21 @@ class ClassesListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search_query'] = self.request.GET.get('q', '')
+        can_filter_schools = self._can_filter_schools()
+        context['can_filter_schools'] = can_filter_schools
         
         # Identify which school is being viewed for the header
         school_id = self.request.GET.get('school')
-        if not self.request.user.is_superuser and self.request.user.school:
+        if not can_filter_schools and self.request.user.school:
             context['school_viewing'] = self.request.user.school
         elif school_id:
             context['school_viewing'] = School.objects.filter(id=school_id).first()
         else:
             context['school_viewing'] = None
         
-        if self.request.user.is_superuser:
-            context['schools'] = School.objects.all()
-            context['selected_school'] = self.request.GET.get('school', '')
+        if can_filter_schools:
+            context['schools'] = School.objects.all().order_by('name')
+            context['selected_school'] = school_id or ''
         else:
             context['schools'] = []
             context['selected_school'] = ''

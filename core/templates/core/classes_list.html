@@ -12,9 +12,25 @@
 {% block content %}
 <div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
     <div>
-        <div class="flex items-center gap-3 mb-1">
+        <div class="flex items-center gap-3 mb-1 flex-wrap">
             <h1 class="text-lg md:text-[22px] font-bold text-slate-800 tracking-tight">Classes Directory</h1>
-            {% if school_viewing %}
+            {% if can_filter_schools %}
+            <form method="get" id="school-filter-form" class="inline-flex">
+                {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
+                {% if selected_grade %}<input type="hidden" name="grade" value="{{ selected_grade }}">{% endif %}
+                <div class="relative">
+                    <i class="fas fa-university absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-[10px] pointer-events-none"></i>
+                    <select name="school" onchange="this.form.submit()"
+                            class="pl-8 pr-8 py-1.5 bg-white border border-indigo-100 text-indigo-700 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 appearance-none cursor-pointer min-w-[160px]">
+                        <option value="">All Campuses</option>
+                        {% for s in schools %}
+                        <option value="{{ s.id }}" {% if selected_school == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400 text-[9px] pointer-events-none"></i>
+                </div>
+            </form>
+            {% elif school_viewing %}
             <span class="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100 flex items-center gap-1.5 shadow-sm">
                 <i class="fas fa-university text-[9px]"></i>
                 {{ school_viewing.name }}
@@ -197,7 +213,12 @@
                     {% for class_obj in classes %}
                     <tr class="group cursor-pointer hover:bg-slate-50/50 {% if forloop.counter > 6 %}hidden extra-class-row{% endif %}" onclick="window.location.href='{% url 'core:class-detail' class_obj.pk %}'">
                         <td class="py-3 text-[12px] font-semibold text-slate-800">{{ forloop.counter|stringformat:"02d" }}</td>
-                        <td class="py-3 text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ class_obj.name }}</td>
+                        <td class="py-3">
+                            <div class="text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ class_obj.name }}</div>
+                            {% if not school_viewing %}
+                            <div class="text-[10px] font-semibold text-slate-400 mt-0.5">{{ class_obj.school.name }}</div>
+                            {% endif %}
+                        </td>
                         <td class="py-3 text-[12px] font-semibold text-slate-500">{{ class_obj.grade.name }}</td>
                         <td class="py-3 text-right">
                             {% if request.user.is_exam_manager or request.user.is_exam_officer %}
